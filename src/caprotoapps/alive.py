@@ -22,9 +22,12 @@ from functools import partial
 from threading import Lock
 import re
 import os
+import getpass
+import grp
 import enum
 import struct
 import socket
+from typing import Sequence
 
 from caproto import ChannelType, SkipWrite
 from caproto.server import (
@@ -46,12 +49,99 @@ HEARTBEAT_PERIOD = 15
 
 class NoIOCName(AttributeError):
     """Could not discern a valid name for this IOC."""
+
     ...
 
 
-def heartbeat_message(magic_number: int, incarnation: int|float,
-                      current_time: int|float, heartbeat_value: int, period: int|float,
-                      flags: int, return_port: int, user_message: int, ioc_name: str):
+def envvar_property(num: int):
+    return pvproperty(
+        name=f".EV{num}",
+        value="",
+        dtype=ChannelType.STRING,
+        doc=f"Environment Variable Name {num}",
+        read_only=False,
+    )
+
+
+def envvar_default_property(num: int, value: str = ""):
+    return pvproperty(
+        name=f".EVD{num}",
+        value=value,
+        dtype=ChannelType.STRING,
+        doc=f"Default Environment Variable Name {num}",
+        read_only=True,
+    )
+
+def env_messages(*, version: int=5, ioc_type: int, env_variables: Sequence):
+    """Construct the environmental variables message.
+
+    Message is suitable to send back to the remote host.
+
+    """
+    # Get the environmental variable messages
+    env_messages = []
+    encoding = "ascii"
+    for key in env_variables:
+        name = key.encode(encoding)
+        val = os.environ.get(key, "")
+        val = val.encode(encoding)
+        msg = b"".join([
+            struct.pack(">B", len(name)),  # name length
+            name,                          # variable name
+            struct.pack(">H", len(val)),   # value length
+            val,                           # variable value
+        ])
+        env_messages.append(msg)
+    # Build the extra os-specific info
+    extra_messages = []
+        # Extra data depending on IOC type
+    if ioc_type == IOCType.LINUX:
+        uid = getpass.getuser().encode(encoding)
+        uid_msg = b"".join([
+            struct.pack(">B", len(uid)),  # string length
+            uid,
+        ])
+        gid = grp.getgrgid(os.getegid()).gr_name.encode(encoding)
+        gid_msg = b"".join([
+            struct.pack(">B", len(gid)),  # string length
+            gid,
+        ])
+        hostname = socket.gethostname().encode(encoding)
+        hostname_msg = b"".join([
+            struct.pack(">B", len(hostname)),  # string length
+            hostname,
+        ])
+        extra_messages = [uid_msg, gid_msg, hostname_msg]
+        log.debug(f"Sending extra info: {uid_msg=}, {gid_msg=}, {hostname_msg=}")
+    # Build the header message
+    HEADER_LENGTH = 10
+    body_length = sum([len(msg) for msg in env_messages])
+    extra_info_length = sum([len(msg) for msg in extra_messages])
+    print(HEADER_LENGTH, env_messages, extra_messages)
+    message_length = HEADER_LENGTH + body_length + extra_info_length
+    print(message_length)
+    num_variables = len(env_messages)
+    header_message = b""
+    header_message += struct.pack(">H", version)
+    header_message += struct.pack(">H", ioc_type)
+    header_message += struct.pack(">I", message_length)
+    header_message += struct.pack(">H", num_variables)
+    yield header_message
+    yield from env_messages
+    yield from extra_messages
+
+def heartbeat_message(
+    magic_number: int,
+    incarnation: int | float,
+    current_time: int | float,
+    heartbeat_value: int,
+    period: int | float,
+    read_environment: bool,
+    suppress_environment: bool,
+    return_port: int,
+    user_message: int,
+    ioc_name: str,
+):
     """Create a UDP message that tells the server the IOC is alive.
 
     Convert the various parameters into a UDP message based on the
@@ -64,6 +154,12 @@ def heartbeat_message(magic_number: int, incarnation: int|float,
 
     """
     PROTOCOL_VERSION = 5
+    # Build TCP trigger flags
+    flags = 0
+    if read_environment:
+        flags |= 0b1
+    if suppress_environment:
+        flags |= 0b10    
     msg = bytes()
     msg += struct.pack(">L", magic_number)  # 0-3
     msg += struct.pack(">H", PROTOCOL_VERSION)  # 4-5
@@ -74,14 +170,22 @@ def heartbeat_message(magic_number: int, incarnation: int|float,
     msg += struct.pack(">H", flags)  # 20-21
     msg += struct.pack(">H", return_port)  # 22-23
     msg += struct.pack(">L", user_message)  # 24-*
-    msg += ioc_name.encode('ascii')
+    msg += ioc_name.encode("ascii")
     # Null terminator
-    msg += b'\x00'
+    msg += b"\x00"
     return msg
 
 
 def epics_time(unix_time):
     return unix_time - 631152000
+
+
+class IOCType(enum.IntEnum):
+    GENERIC = 0
+    VX_WORKS = 1
+    LINUX = 2
+    DARWIN = 3
+    WINDOWS = 4
 
 
 class AliveGroup(PVGroup):
@@ -102,7 +206,14 @@ class AliveGroup(PVGroup):
         OPERABLE = 1
         INOPERABLE = 2
 
-    def __init__(self, remote_host: str="localhost", remote_port: int=5678, ioc_name: str=None, *args, **kwargs):
+    def __init__(
+        self,
+        remote_host: str = "localhost",
+        remote_port: int = 5678,
+        ioc_name: str = None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.default_remote_host = remote_host
         self.default_remote_port = remote_port
@@ -112,9 +223,11 @@ class AliveGroup(PVGroup):
     def socket(self):
         # Create the socket
         if self._sock is None:
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM | socket.SOCK_NONBLOCK)
+            self._sock = socket.socket(
+                socket.AF_INET, socket.SOCK_DGRAM | socket.SOCK_NONBLOCK
+            )
         yield self._sock
-        
+
     async def resolve_hostname(self, hostname):
         """Determine the host's IP address.
 
@@ -125,7 +238,9 @@ class AliveGroup(PVGroup):
         """
         loop = self.async_lib.get_running_loop()
         addr = await loop.run_in_executor(
-            None, socket.gethostbyname, hostname,
+            None,
+            socket.gethostbyname,
+            hostname,
         )
         return addr
 
@@ -168,17 +283,11 @@ class AliveGroup(PVGroup):
           True if the heartbeat message was sent, otherwise false.
         sock
           An open socket object.
-        
+
         """
         if self.hrtbt.value == "Off":
             log.debug("No heartbeat this round, .HRTBT is off.")
             return False
-        # Build TCP trigger flags
-        flags = 0
-        if bool(self.itrig.value):
-            flags |= 0b1
-        if bool(self.isup.value):
-            flags |= 0b10
         # Prepare the UDP message
         next_heartbeat = self.val.value + 1
         message = heartbeat_message(
@@ -187,7 +296,8 @@ class AliveGroup(PVGroup):
             current_time=time.time(),
             heartbeat_value=next_heartbeat,
             period=self.hprd.value,
-            flags=flags,
+            read_environment=bool(self.itrig.value),
+            suppress_environment=bool(self.isup.value),
             return_port=self.iport.value,
             user_message=self.msg.value,
             ioc_name=self.iocnm.value,
@@ -195,7 +305,7 @@ class AliveGroup(PVGroup):
         # Send the message
         addr, port = self.server_address()
         if addr is not None and port is not None:
-            print(f"Sending UDP to {(addr, port)}, #{next_heartbeat}")
+            log.debug(f"Sending UDP to {(addr, port)}, #{next_heartbeat}")
             await self.send_udp_message(message=message, address=(addr, port))
             # Update the heartbeat counter
             await self.val.write(next_heartbeat)
@@ -208,14 +318,67 @@ class AliveGroup(PVGroup):
             sock.connect(address)
             loop = self.async_lib.get_running_loop()
             await loop.sock_sendall(sock=sock, data=message)
+
+    async def handle_env_request(self, reader, writer):
+        # Check for conditions that result in no data being sent
+        remote_addr, remote_port = writer.get_extra_info("peername")
+        bad_hostname = (remote_addr != self.raddr.value)
+        is_suppressed = self.isup.value not in ["Off", False, 0]
+        if is_suppressed:
+            log.debug(f"Suppressing environmental variable reply: {self.isup.value=}")
+        if bad_hostname:
+            log.debug(f"Refused env request from host {remote_addr}. Expected {self.raddr.value}")
+        if is_suppressed or bad_hostname:
+            # Invalid connection: close immediately
+            writer.close()
+            await writer.wait_closed()
+            return
+        # Send the env variables message
+        messages = env_messages(
+            ioc_type=self.ioc_type,
+            env_variables=self.env_variables,
+            
+        )
+        for msg in messages:
+            log.debug(f"Sending environment message: {msg}")
+            writer.write(msg)
+            await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    @property
+    def env_variables(self):
+        """The list of environmental variables that are to be returned to the
+        daemon.
+
+        """
+        evars = []
+        for i in range(1, 17):
+            # Check custom values first
+            val = getattr(self, f"ev{i}").value
+            if len(val) <= 0:
+                # No custom value, use default value instead
+                val = getattr(self, f"evd{i}").value
+            # Make sure there's a variable there
+            if len(val) > 0:
+                evars.append(val)
+        return evars
     
     val = pvproperty(
-        name=".VAL",
-        value=0,
-        dtype=int,
-        doc="Heartbeat Value",
-        read_only=True
+        name=".VAL", value=0, dtype=int, doc="Heartbeat Value", read_only=True
     )
+
+    @property
+    def ioc_type(self):
+        """Determine the IOC type based on the current platform."""
+        if sys.platform.startswith("linux"):
+            return IOCType.LINUX
+        elif sys.platform.startswith("darwin"):
+            return IOCType.DARWIN
+        elif sys.platform.startswith("win32"):
+            return IOCType.WINDOWS
+        else:
+            return IOCType.GENERIC
 
     @val.scan(HEARTBEAT_PERIOD)
     async def val(self, instance, async_lib):
@@ -236,11 +399,12 @@ class AliveGroup(PVGroup):
         doc="Remote Host Name or IP Address",
         read_only=True,
     )
+
     @rhost.putter
     async def rhost(self, instance, value):
         addr = await self.resolve_hostname(value)
         await self.raddr.write(addr)
-    
+
     raddr = pvproperty(
         name=".RADDR",
         value="",
@@ -269,6 +433,7 @@ class AliveGroup(PVGroup):
         doc="Aux. Remote Host Name or IP Address",
         read_only=False,
     )
+
     @ahost.putter
     async def ahost(self, instance, value):
         addr = await self.resolve_hostname(value)
@@ -296,12 +461,20 @@ class AliveGroup(PVGroup):
         read_only=True,
     )
     hrtbt = pvproperty(
-        name=".HRTBT", value="Off", dtype=bool, doc="Heartbeating State", read_only=False
+        name=".HRTBT",
+        value="On",
+        dtype=bool,
+        doc="Heartbeating State",
+        read_only=False,
     )
     hprd = pvproperty(
-        name=".HPRD", value=HEARTBEAT_PERIOD, dtype=int, doc="Heartbeat Period", read_only=True
+        name=".HPRD",
+        value=HEARTBEAT_PERIOD,
+        dtype=int,
+        doc="Heartbeat Period",
+        read_only=True,
     )
-        
+
     iocnm = pvproperty(
         name=".IOCNM",
         value="",
@@ -309,6 +482,7 @@ class AliveGroup(PVGroup):
         doc="IOC Name Value",
         read_only=True,
     )
+
     @iocnm.startup
     async def iocnm(self, instance, asyncio_lib):
         """Set the IOC name based on the following, in order:
@@ -316,7 +490,7 @@ class AliveGroup(PVGroup):
         1. Given as *ioc_name* to the alive record constructor.
         2. IOC environmental variable
         3. Prefix of the parent
-        
+
         """
         # Determine best ioc name
         if self.default_ioc_name is not None:
@@ -324,18 +498,20 @@ class AliveGroup(PVGroup):
             ioc_name = self.default_ioc_name
         elif "IOC" in os.environ.keys():
             # Use environmental variable
-            ioc_name = os.environ['IOC']
+            ioc_name = os.environ["IOC"]
         elif self.parent is not None:
             # Default, use this group's parent's prefix
-            ioc_name = self.parent.prefix.strip(' .:')
+            ioc_name = self.parent.prefix.strip(" .:")
         else:
             # Could not determine the ioc name
-            raise NoIOCName("AliveGroup has no IOC name. "
-                            "Please provide *ioc_name* init parameter, "
-                            "or set *IOC* environment variable.")
+            raise NoIOCName(
+                "AliveGroup has no IOC name. "
+                "Please provide *ioc_name* init parameter, "
+                "or set *IOC* environment variable."
+            )
         # Set IOC name for later sending to the alive daemon
         await instance.write(ioc_name)
-        
+
     hmag = pvproperty(
         name=".HMAG",
         value=305419896,
@@ -353,6 +529,27 @@ class AliveGroup(PVGroup):
         doc="TCP Information Port Number",
         read_only=True,
     )
+    @iport.startup
+    async def iport(self, instance, async_lib):
+        """Start a TCP server for env request from the alive daemon."""
+        try:
+            # Start the server
+            tcp_server = await async_lib.library.start_server(
+                client_connected_cb=self.handle_env_request,
+                port=instance.value,
+            )            
+        except Exception as exc:
+            # Failed
+            await self.ipsts.write(self.InformationPortStatus.INOPERABLE)
+            log.error(f"Could not listen for TCP packets: {exc}")
+        else:
+            log.info(f"Listening for environmental variable requests: {tcp_server}")
+            # Determine listening port
+            ip4socket = [s for s in tcp_server.sockets if s.family == socket.AF_INET][0]
+            listen_port = ip4socket.getsockname()[1]
+            await instance.write(listen_port)
+            await self.ipsts.write(self.InformationPortStatus.OPERABLE)
+        
     ipsts = pvproperty(
         name=".IPSTS",
         value=InformationPortStatus.UNDETERMINED,
@@ -381,31 +578,36 @@ class AliveGroup(PVGroup):
         doc="Record Version",
         read_only=True,
     )
-    evd1 = pvproperty(
-        name=".EVD1",
-        value="",
-        dtype=ChannelType.STRING,
-        doc="Default Environment Variable Name 1",
-        read_only=True,
-    )
-    evd16 = pvproperty(
-        name=".EVD16",
-        value="",
-        dtype=ChannelType.STRING,
-        doc="Default Environment Variable Name 16",
-        read_only=True,
-    )
-    ev1 = pvproperty(
-        name=".EV1",
-        value="",
-        dtype=ChannelType.STRING,
-        doc="Environment Variable Name 1",
-        read_only=False,
-    )
-    ev16 = pvproperty(
-        name=".EV16",
-        value="",
-        dtype=ChannelType.STRING,
-        doc="Environment Variable Name 16",
-        read_only=False,
-    )
+    evd1 = envvar_default_property(1, "ENGINEER")
+    evd2 = envvar_default_property(2, "LOCATION")
+    evd3 = envvar_default_property(3, "GROUP")
+    evd4 = envvar_default_property(4, "STY")
+    evd5 = envvar_default_property(5, "PREFIX")
+    evd6 = envvar_default_property(6)
+    evd7 = envvar_default_property(7)
+    evd8 = envvar_default_property(8)
+    evd9 = envvar_default_property(9)
+    evd10 = envvar_default_property(10)
+    evd11 = envvar_default_property(11)
+    evd12 = envvar_default_property(12)
+    evd13 = envvar_default_property(13)
+    evd14 = envvar_default_property(14)
+    evd15 = envvar_default_property(15)
+    evd16 = envvar_default_property(16)
+    
+    ev1 = envvar_property(1)
+    ev2 = envvar_property(2)
+    ev3 = envvar_property(3)
+    ev4 = envvar_property(4)
+    ev5 = envvar_property(5)
+    ev6 = envvar_property(6)
+    ev7 = envvar_property(7)
+    ev8 = envvar_property(8)
+    ev9 = envvar_property(9)
+    ev10 = envvar_property(10)
+    ev11 = envvar_property(11)
+    ev12 = envvar_property(12)
+    ev13 = envvar_property(13)
+    ev14 = envvar_property(14)
+    ev15 = envvar_property(15)
+    ev16 = envvar_property(16)

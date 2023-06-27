@@ -9,21 +9,20 @@ from caproto.server import SubGroup, PVGroup
 from caprotoapps import alive
 
 
-
-
 def test_heartbeat_message():
-    result = alive.heartbeat_message(magic_number=305419896,
-                               incarnation=1686795752.651364,
-                               current_time=1686795860.727304,
-                               heartbeat_value=25,
-                               period=15,
-                               flags=0b00000010,
-                               return_port=0,
-                               user_message=9,
-                               ioc_name="25idAustin",
-                               )
+    result = alive.heartbeat_message(
+        magic_number=305419896,
+        incarnation=1686795752.651364,
+        current_time=1686795860.727304,
+        heartbeat_value=25,
+        period=15,
+        read_environment=False,
+        suppress_environment=True,
+        return_port=0,
+        user_message=9,
+        ioc_name="25idAustin",
+    )
     assert type(result) == bytes
-    print(result)
     # Check magic number message
     EPICS_TIME_CORRECTION = -631152000
     # Magic number
@@ -45,7 +44,7 @@ def test_heartbeat_message():
     # User message
     assert struct.unpack(">L", result[24:28])[0] == 9
     # IOC name
-    assert result[28:38].decode('ascii') == "25idAustin"
+    assert result[28:38].decode("ascii") == "25idAustin"
     assert len(result) == 39
     # Null terminator
     assert result[38] == 0
@@ -74,6 +73,7 @@ async def test_send_heartbeat(test_ioc):
     await alive_group.rport.write(5895)
     await alive_group.val.write(5)
     # First with the HRTBT field off (no heartbeat)
+    await alive_group.hrtbt.write(False)
     await alive_group.send_heartbeat()
     assert alive_group.val.value == 5
     assert not alive_group.send_udp_message.called
@@ -83,7 +83,11 @@ async def test_send_heartbeat(test_ioc):
     assert alive_group.val.value == 6
     # Check the message was sent properly
     assert alive_group.send_udp_message.called
-    assert alive_group.send_udp_message.call_args.kwargs['address'] == ("192.0.2.0", 5895)
+    assert alive_group.send_udp_message.call_args.kwargs["address"] == (
+        "192.0.2.0",
+        5895,
+    )
+
 
 @pytest.mark.asyncio
 async def test_host_resolution(test_ioc):
@@ -91,6 +95,7 @@ async def test_host_resolution(test_ioc):
     # alive_group.sock.gethostbyname.return_value = "127.0.0.1"
     await alive_group.rhost.write("localhost")
     assert alive_group.raddr.value == "127.0.0.1"
+
 
 @pytest.mark.asyncio
 async def test_server_address(test_ioc):
@@ -113,6 +118,7 @@ async def test_server_address(test_ioc):
     assert addr == "127.0.0.2"
     assert port == 89
 
+
 @pytest.mark.asyncio
 async def test_heartbeat_flags(test_ioc):
     alive_group = test_ioc.alive
@@ -124,21 +130,21 @@ async def test_heartbeat_flags(test_ioc):
     await alive_group.send_heartbeat()
     # No flags set
     assert alive_group.send_udp_message.called
-    message = alive_group.send_udp_message.call_args.kwargs['message']
+    message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
     assert flags == 0b0
     # Flag for ITRIG being set
     sock.sendto.clear()
     await alive_group.itrig.write(1)
     await alive_group.send_heartbeat()
-    message = alive_group.send_udp_message.call_args.kwargs['message']
+    message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
     assert flags == 0b1
     # Flag for ISUP being set
     sock.sendto.clear()
     await alive_group.isup.write(1)
     await alive_group.send_heartbeat()
-    message = alive_group.send_udp_message.call_args.kwargs['message']
+    message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
     assert flags == 0b11
 
@@ -150,18 +156,110 @@ async def test_ioc_name(monkeypatch):
     with pytest.raises(alive.NoIOCName):
         await ioc.iocnm.startup(ioc.iocnm, None)
     # Check parent IOC prefix
-    IOC = type('IOC', (PVGroup,), {"alive": SubGroup(alive.AliveGroup)})
+    IOC = type("IOC", (PVGroup,), {"alive": SubGroup(alive.AliveGroup)})
     ioc = IOC(prefix="my_awesome_ioc:")
     await ioc.alive.iocnm.startup(ioc.alive.iocnm, None)
     assert ioc.alive.iocnm.value == "my_awesome_ioc"
     # Check IOC environmental variable
     monkeypatch.setenv("IOC", "our_ioc")
-    IOC = type('IOC', (PVGroup,), {"alive": SubGroup(alive.AliveGroup)})
+    IOC = type("IOC", (PVGroup,), {"alive": SubGroup(alive.AliveGroup)})
     ioc = IOC(prefix="my_awesome_ioc")
     await ioc.alive.iocnm.startup(ioc.alive.iocnm, None)
     assert ioc.alive.iocnm.value == "our_ioc"
     # Check explicit IOC name as argument
-    IOC = type('IOC', (PVGroup,), {"alive": SubGroup(alive.AliveGroup, ioc_name="my_ioc")})
+    IOC = type(
+        "IOC", (PVGroup,), {"alive": SubGroup(alive.AliveGroup, ioc_name="my_ioc")}
+    )
     ioc = IOC(prefix="my_awesome_ioc")
     await ioc.alive.iocnm.startup(ioc.alive.iocnm, None)
     assert ioc.alive.iocnm.value == "my_ioc"
+
+
+@pytest.fixture()
+def writer():
+    writer = mock.AsyncMock()
+    writer.get_extra_info = mock.MagicMock(return_value = ("9.9.9.9", 0))
+    writer.write = mock.MagicMock()
+    writer.close = mock.MagicMock()
+    yield writer
+
+
+@pytest.mark.asyncio
+async def test_env_callback_suppressed(test_ioc, writer):
+    alive_group = test_ioc.alive
+    reader = mock.AsyncMock()
+    # Set the ISUP flag to true
+    await alive_group.isup.write(1)
+    # Check that request was refused
+    await alive_group.handle_env_request(reader, writer)
+    assert not writer.write.called
+    assert writer.close.called
+
+
+@pytest.mark.asyncio
+async def test_env_callback_badhost(test_ioc, writer):
+    alive_group = test_ioc.alive
+    reader = mock.AsyncMock()
+    # Set the ISUP flag to true just in case
+    await alive_group.isup.write(0)
+    # Check that request was refused
+    await alive_group.handle_env_request(reader, writer)
+    assert not writer.write.called
+    assert writer.close.called
+
+
+@pytest.mark.asyncio
+async def test_env_callback(test_ioc, writer):
+    alive_group = test_ioc.alive
+    await alive_group.isup.write(0)
+    await alive_group.raddr.write("9.9.9.9")
+    reader = mock.AsyncMock()
+    # Ask for some environmental variables
+    await alive_group.handle_env_request(reader, writer)
+    assert writer.write.called
+    # Check response messages
+    messages = [call.args[0] for call in writer.write.call_args_list]
+    # Information message
+    info_target = (
+        b"\x00\x05"  # Version
+        b"\x00\x02"  # IOC type: Linux
+    )
+    assert messages[0].startswith(info_target)
+
+
+def test_env_messages(monkeypatch):
+    env_variables = [
+        ("ENGINEER", "Quig"),
+        ("PREFIX", "test_ioc:"),
+    ]
+    body_length = sum([len(k) + len(v) for k, v in env_variables])
+    for key, val in env_variables:
+        monkeypatch.setenv(key, val)
+    messages = alive.env_messages(version=4, ioc_type=alive.IOCType.LINUX,
+                                  env_variables=[d[0] for d in env_variables])
+    expected_header = b"".join([
+        ## Header
+        b"\x00\x04",  # Version
+        b"\x00\x02",  # IOC type: Linux
+        b"\x00\x00\x00\x50",  # Length of message: 10 + body_length + extra_info_length
+        b"\x00\x02", # Variable count
+    ])
+    assert next(messages) == expected_header
+    # Check individual variable's messages
+    remaining_messages = list(messages)
+    assert len(remaining_messages) == len(env_variables) + 3  # +3 for IOC-specific data
+
+
+@pytest.mark.asyncio
+async def test_env_variable_list(test_ioc):
+    alive_group = test_ioc.alive
+    # Set some environmental variables to ask for
+    await alive_group.evd1.write("ENGINEER")
+    await alive_group.evd2.write("ARCH")
+    await alive_group.evd3.write("")
+    await alive_group.evd4.write("")
+    await alive_group.evd5.write("")
+    await alive_group.ev2.write("HOST_ARCH")
+    assert alive_group.env_variables == ["ENGINEER", "HOST_ARCH"]
+    
+    
