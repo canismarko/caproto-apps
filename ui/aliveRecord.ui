@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Alive Record</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -480,6 +480,49 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_12">
+       <property name="text">
+        <string>Read Status:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="PyDMLabel" name="PyDMLabel_14">
+       <property name="toolTip">
+        <string/>
+       </property>
+       <property name="text">
+        <string>Queued</string>
+       </property>
+       <property name="PyDMToolTip" stdset="0">
+        <string>Whether the remote host has been told to re-read environmental variables from the IOC.</string>
+       </property>
+       <property name="channel" stdset="0">
+        <string>ca://${P}alive.RRSTS</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_15">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="Line" name="line_3">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -584,6 +627,49 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>Read Status:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="PyDMLabel" name="PyDMLabel_11">
+       <property name="toolTip">
+        <string/>
+       </property>
+       <property name="text">
+        <string>Idle</string>
+       </property>
+       <property name="PyDMToolTip" stdset="0">
+        <string>Whether the auxillary remote host has been told to re-read environmental variables from the IOC.</string>
+       </property>
+       <property name="channel" stdset="0">
+        <string>ca://${P}alive.ARSTS</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_14">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="Line" name="line_4">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -678,12 +764,21 @@
       </widget>
      </item>
      <item>
-      <widget class="PyDMEnumComboBox" name="PyDMEnumComboBox">
+      <widget class="PyDMPushButton" name="PyDMPushButton">
        <property name="toolTip">
         <string/>
        </property>
+       <property name="text">
+        <string>Trigger</string>
+       </property>
+       <property name="PyDMToolTip" stdset="0">
+        <string>Request the host and/or aux host to update the environmental variables.</string>
+       </property>
        <property name="channel" stdset="0">
         <string>ca://${P}alive.ITRIG</string>
+       </property>
+       <property name="pressValue" stdset="0">
+        <string>1</string>
        </property>
       </widget>
      </item>
@@ -815,6 +910,11 @@
    <class>PyDMLineEdit</class>
    <extends>QLineEdit</extends>
    <header>pydm.widgets.line_edit</header>
+  </customwidget>
+  <customwidget>
+   <class>PyDMPushButton</class>
+   <extends>QPushButton</extends>
+   <header>pydm.widgets.pushbutton</header>
   </customwidget>
   <customwidget>
    <class>PyDMRelatedDisplayButton</class>

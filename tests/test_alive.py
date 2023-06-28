@@ -16,7 +16,7 @@ def test_heartbeat_message():
         current_time=1686795860.727304,
         heartbeat_value=25,
         period=15,
-        read_environment=False,
+        request_read=False,
         suppress_environment=True,
         return_port=0,
         user_message=9,
@@ -102,19 +102,18 @@ async def test_server_address(test_ioc):
     """Check that the server address is retrieved from PVs."""
     alive_group = test_ioc.alive
     # First check if both settings are invalid
-    addr, port = alive_group.server_address()
-    assert addr is None
-    assert port is None
+    with pytest.raises(alive.InvalidServerAddress):
+        addr, port = alive_group.server_address()
     # Check a valid rhost
     await alive_group.rhost.write("127.0.0.1")
     await alive_group.rport.write(88)
     addr, port = alive_group.server_address()
     assert addr == "127.0.0.1"
     assert port == 88
-    # Check that AUX host overrules rhost
+    # Check that AUX host comes back
     await alive_group.ahost.write("127.0.0.2")
     await alive_group.aport.write(89)
-    addr, port = alive_group.server_address()
+    addr, port = alive_group.server_address(use_aux=True)
     assert addr == "127.0.0.2"
     assert port == 89
 
@@ -125,14 +124,13 @@ async def test_heartbeat_flags(test_ioc):
     await alive_group.rport.write(5000)
     await alive_group.raddr.write("127.0.0.1")
     await alive_group.hrtbt.write(True)
-    print("Values:", repr(alive_group.rport.value), alive_group.raddr.value)
     sock = mock.MagicMock()
     await alive_group.send_heartbeat()
     # No flags set
     assert alive_group.send_udp_message.called
     message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
-    assert flags == 0b0
+    assert flags == 0b01
     # Flag for ITRIG being set
     sock.sendto.clear()
     await alive_group.itrig.write(1)
@@ -143,6 +141,7 @@ async def test_heartbeat_flags(test_ioc):
     # Flag for ISUP being set
     sock.sendto.clear()
     await alive_group.isup.write(1)
+    print(alive_group.itrig.value, alive_group.rrsts.value)
     await alive_group.send_heartbeat()
     message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
@@ -237,16 +236,17 @@ def test_env_messages(monkeypatch):
         monkeypatch.setenv(key, val)
     messages = alive.env_messages(version=4, ioc_type=alive.IOCType.LINUX,
                                   env_variables=[d[0] for d in env_variables])
+    # Check the header
+    header, *remaining_messages = messages
+    expected_length = 10 + sum([len(m) for m in remaining_messages])
     expected_header = b"".join([
-        ## Header
         b"\x00\x04",  # Version
         b"\x00\x02",  # IOC type: Linux
-        b"\x00\x00\x00\x50",  # Length of message: 10 + body_length + extra_info_length
+        struct.pack(">I", expected_length), # E.g. b"\x00\x00\x00\x50" 
         b"\x00\x02", # Variable count
     ])
-    assert next(messages) == expected_header
+    assert header == expected_header
     # Check individual variable's messages
-    remaining_messages = list(messages)
     assert len(remaining_messages) == len(env_variables) + 3  # +3 for IOC-specific data
 
 
@@ -263,3 +263,36 @@ async def test_env_variable_list(test_ioc):
     assert alive_group.env_variables == ["ENGINEER", "HOST_ARCH"]
     
     
+@pytest.mark.asyncio
+async def test_read_status_fields(test_ioc, writer):
+    """Check that the ITRIG field gets set automatically."""
+    reader = mock.AsyncMock()
+    alive_group = test_ioc.alive
+    await alive_group.raddr.write("9.9.9.9")
+    await alive_group.rport.write(999)
+    await alive_group.rrsts.write("Idle")
+    # Check that the flag is off if no env update is requested
+    await alive_group.send_heartbeat()
+    assert alive_group.send_udp_message.called
+    msg = alive_group.send_udp_message.call_args.kwargs['message']
+    flags = msg[20:22]
+    assert flags == b"\x00\x00"
+    # Setup the trigger status
+    assert alive_group.rrsts.value == "Idle"
+    await alive_group.itrig.write(True)
+    assert alive_group.itrig.value == "Off"
+    assert alive_group.rrsts.value == "Queued"
+    # Does the ITRIG field get once the next heartbeat goes out?
+    await alive_group.send_heartbeat()
+    assert alive_group.itrig.value == "Off"
+    assert alive_group.rrsts.value == "Due"
+    # Check that the message had the right flags set
+    assert alive_group.send_udp_message.called
+    msg = alive_group.send_udp_message.call_args.kwargs['message']
+    flags = msg[20:22]
+    assert flags == b"\x00\x01"
+    # Check that the read status flag gets cleared
+    await alive_group.handle_env_request(reader, writer)
+    assert alive_group.rrsts.value == "Idle"
+
+

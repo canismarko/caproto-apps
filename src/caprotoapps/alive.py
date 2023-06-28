@@ -47,6 +47,10 @@ log = logging.getLogger(__name__)
 HEARTBEAT_PERIOD = 15
 
 
+class InvalidServerAddress(ValueError):
+    ...
+
+
 class NoIOCName(AttributeError):
     """Could not discern a valid name for this IOC."""
 
@@ -117,9 +121,7 @@ def env_messages(*, version: int=5, ioc_type: int, env_variables: Sequence):
     HEADER_LENGTH = 10
     body_length = sum([len(msg) for msg in env_messages])
     extra_info_length = sum([len(msg) for msg in extra_messages])
-    print(HEADER_LENGTH, env_messages, extra_messages)
     message_length = HEADER_LENGTH + body_length + extra_info_length
-    print(message_length)
     num_variables = len(env_messages)
     header_message = b""
     header_message += struct.pack(">H", version)
@@ -136,7 +138,7 @@ def heartbeat_message(
     current_time: int | float,
     heartbeat_value: int,
     period: int | float,
-    read_environment: bool,
+    request_read: bool,
     suppress_environment: bool,
     return_port: int,
     user_message: int,
@@ -156,10 +158,10 @@ def heartbeat_message(
     PROTOCOL_VERSION = 5
     # Build TCP trigger flags
     flags = 0
-    if read_environment:
+    if request_read:
         flags |= 0b1
     if suppress_environment:
-        flags |= 0b10    
+        flags |= 0b10
     msg = bytes()
     msg += struct.pack(">L", magic_number)  # 0-3
     msg += struct.pack(">H", PROTOCOL_VERSION)  # 4-5
@@ -196,15 +198,15 @@ class AliveGroup(PVGroup):
     default_remote_port: int
 
     class HostReadStatus(enum.IntEnum):
-        IDLE = 0
-        QUEUED = 1
-        DUE = 2
-        OVERDUE = 3
+        Idle = 0
+        Queued = 1
+        Due = 2
+        Overdue = 3
 
     class InformationPortStatus(enum.IntEnum):
-        UNDETERMINED = 0
-        OPERABLE = 1
-        INOPERABLE = 2
+        Undetermined = 0
+        Operable = 1
+        Inoperable = 2
 
     def __init__(
         self,
@@ -242,12 +244,19 @@ class AliveGroup(PVGroup):
             socket.gethostbyname,
             hostname,
         )
+        log.debug(f"Resolved {hostname=} to {addr=}")
         return addr
 
-    def server_address(self):
+    def server_address(self, use_aux: bool = False):
         """Determine which server to use for sending heartbeats.
 
         Checks the .RADDR and .AADDR fields to determine which to use.
+
+        Parameters
+        ==========
+        use_aux
+          If true, return the auxillary host instead of the regular
+          remote host.
 
         Returns
         =======
@@ -258,22 +267,21 @@ class AliveGroup(PVGroup):
 
         """
         invalid_addrs = ["", "invalid AHOST", "invalid RHOST"]
-        addr = None
-        port = None
-        # Check for a valid remote host
-        addr_is_valid = self.raddr.value not in invalid_addrs
-        port_is_valid = self.rport.value > 0
-        if addr_is_valid and port_is_valid:
-            addr = self.raddr.value
-            port = self.rport.value
-        # Check for a valid auxillary host
-        addr_is_valid = self.aaddr.value not in invalid_addrs
-        port_is_valid = self.aport.value > 0
-        if addr_is_valid and port_is_valid:
+        # Get the PV's values for addr and port
+        if use_aux:
             addr = self.aaddr.value
             port = self.aport.value
-        return (addr, port)
-
+        else:
+            addr = self.raddr.value
+            port = self.rport.value
+        # Check for a valid remote host
+        addr_is_valid = addr not in invalid_addrs
+        port_is_valid = port > 0
+        if addr_is_valid and port_is_valid:
+            return (addr, port)
+        else:
+            raise InvalidServerAddress((addr, port))
+    
     async def send_heartbeat(self) -> bool:
         """Send a heartbeat message to the alive server.
 
@@ -290,30 +298,62 @@ class AliveGroup(PVGroup):
             return False
         # Prepare the UDP message
         next_heartbeat = self.val.value + 1
-        message = heartbeat_message(
+        make_message = partial(heartbeat_message, 
             magic_number=self.hmag.value,
             incarnation=self.incarnation,
             current_time=time.time(),
             heartbeat_value=next_heartbeat,
             period=self.hprd.value,
-            read_environment=bool(self.itrig.value),
-            suppress_environment=bool(self.isup.value),
+            suppress_environment=self.isup.value == "On",
             return_port=self.iport.value,
-            user_message=self.msg.value,
+            user_message=max(0, self.msg.value),
             ioc_name=self.iocnm.value,
         )
         # Send the message
-        addr, port = self.server_address()
-        if addr is not None and port is not None:
-            log.debug(f"Sending UDP to {(addr, port)}, #{next_heartbeat}")
+        sent_to_remote_host = False
+        try:
+            addr, port = self.server_address()
+        except InvalidServerAddress:
+            pass
+        else:
+            request_read = self.rrsts.value in ["Queued", "Due", "Overdue"]
+            message = make_message(request_read=request_read)
             await self.send_udp_message(message=message, address=(addr, port))
-            # Update the heartbeat counter
+            sent_to_remote_host = True
+            # Update read status variable
+            match self.rrsts.value:
+                case "Queued":
+                    await self.rrsts.write("Due")
+                case "Due":
+                    await self.rrsts.write("Overdue")
+        # Send the message to the aux host
+        sent_to_aux_host = False
+        try:
+            addr, port = self.server_address(use_aux=True)
+        except InvalidServerAddress:
+            pass
+        else:
+            request_read = (self.arsts.value=="Queued")
+            message = make_message(request_read=request_read)
+            await self.send_udp_message(message=message, address=(addr, port))
+            sent_to_aux_host = True
+            # Update read status variable
+            match self.arsts.value:
+                case "Queued":
+                    await self.arsts.write("Due")
+                case "Due":
+                    await self.arsts.write("Overdue")
+        # Update the read status PVs
+        if sent_to_remote_host or sent_to_aux_host:
+            # Update the heartbeat counter            
             await self.val.write(next_heartbeat)
         else:
-            log.debug(f"Skipping heartbeat, {(addr, port)} invalid.")
+            log.debug(f"Skipping heartbeat, no valid host set.")
+            
 
     async def send_udp_message(self, message, address):
         """Open a socket and deliver the *message* via UDP to *address*."""
+        log.debug(f"Sending UDP to {address}: {message}")
         with self.socket() as sock:
             sock.connect(address)
             loop = self.async_lib.get_running_loop()
@@ -322,7 +362,7 @@ class AliveGroup(PVGroup):
     async def handle_env_request(self, reader, writer):
         # Check for conditions that result in no data being sent
         remote_addr, remote_port = writer.get_extra_info("peername")
-        bad_hostname = (remote_addr != self.raddr.value)
+        bad_hostname = (remote_addr not in [self.raddr.value, self.aaddr.value])
         is_suppressed = self.isup.value not in ["Off", False, 0]
         if is_suppressed:
             log.debug(f"Suppressing environmental variable reply: {self.isup.value=}")
@@ -345,6 +385,11 @@ class AliveGroup(PVGroup):
             await writer.drain()
         writer.close()
         await writer.wait_closed()
+        # Update read status PVs
+        if remote_addr == self.raddr.value:
+            await self.rrsts.write("Idle")
+        if remote_addr == self.aaddr.value:
+            await self.arsts.write("Idle")
 
     @property
     def env_variables(self):
@@ -421,7 +466,7 @@ class AliveGroup(PVGroup):
     )
     rrsts = pvproperty(
         name=".RRSTS",
-        value=HostReadStatus.IDLE,
+        value=HostReadStatus.Queued,
         dtype=HostReadStatus,
         doc="Remote Host Read Status",
         read_only=True,
@@ -455,7 +500,7 @@ class AliveGroup(PVGroup):
     )
     arsts = pvproperty(
         name=".ARSTS",
-        value=HostReadStatus.IDLE,
+        value=HostReadStatus.Queued,
         dtype=HostReadStatus,
         doc="Aux. Remote Host Read Status",
         read_only=True,
@@ -540,7 +585,7 @@ class AliveGroup(PVGroup):
             )            
         except Exception as exc:
             # Failed
-            await self.ipsts.write(self.InformationPortStatus.INOPERABLE)
+            await self.ipsts.write(self.InformationPortStatus.Inoperable)
             log.error(f"Could not listen for TCP packets: {exc}")
         else:
             log.info(f"Listening for environmental variable requests: {tcp_server}")
@@ -548,11 +593,11 @@ class AliveGroup(PVGroup):
             ip4socket = [s for s in tcp_server.sockets if s.family == socket.AF_INET][0]
             listen_port = ip4socket.getsockname()[1]
             await instance.write(listen_port)
-            await self.ipsts.write(self.InformationPortStatus.OPERABLE)
+            await self.ipsts.write(self.InformationPortStatus.Operable)
         
     ipsts = pvproperty(
         name=".IPSTS",
-        value=InformationPortStatus.UNDETERMINED,
+        value=InformationPortStatus.Undetermined,
         dtype=InformationPortStatus,
         doc="Information Port Status",
         read_only=True,
@@ -564,16 +609,22 @@ class AliveGroup(PVGroup):
         doc="Trigger Information Request",
         read_only=False,
     )
+    @itrig.putter
+    async def itrig(self, instance, value):
+        await self.rrsts.write(self.HostReadStatus.Queued)
+        await self.arsts.write(self.HostReadStatus.Queued)
+        return "Off"
+    
     isup = pvproperty(
         name=".ISUP",
-        value=False,
+        value="Off",
         dtype=bool,
         doc="Suppress Information Requests",
         read_only=False,
     )
     ver = pvproperty(
         name=".VER",
-        value="5.1.3",
+        value="1.4.1",
         dtype=ChannelType.STRING,
         doc="Record Version",
         read_only=True,
