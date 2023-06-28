@@ -1,4 +1,4 @@
-# caproto-apps
+# Caproto Apps
 
 [![Tests](https://github.com/canismarko/caproto-apps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/canismarko/caproto-apps/actions/workflows/ci.yml)
 
@@ -6,7 +6,15 @@ Implementations of select EPICS-compatible records in caproto.
 
 Currently the only app available is the **Alive** app.
 
-## Alive
+## Installation
+
+```
+pip install caproto-apps
+```
+
+## Components
+
+### Alive
 
 The AliveGroup provides equivalent functionality to the
 [EPICS alive record](http://epics-modules.github.io/alive/aliveRecord.html)
@@ -60,6 +68,20 @@ class MyAliveGroup(AliveGroup):
     # Add a new variable, "STATUS"
     evd6 = envvar_default_property(1, "STATUS")
 
+```
+
+## Development
+
+To install caproto-apps for development, first clone the github repository:
+
+```
+git clone https://github.com/canismarko/caproto-apps.git
+```
+
+Then run tests with pytest
+
+```
+pytest
 ```
 
 ## Building the Project for PyPI
