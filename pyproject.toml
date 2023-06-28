@@ -12,14 +12,24 @@ version = "0.0.1"
 authors = [
   { name="Mark Wolfman", email="wolfman@anl.gov" },
 ]
-description = "Implementations of select EPICS-compatible records in caproto."
+description = "Variety of useful extensions for caproto IOCs."
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
 ]
+keywords = ["caproto", "controls"]
+dependencies = ["caproto"]
+
+[project.optional-dependencies]
+dev = ["black", "pytest", "pytest-asyncio", "build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/canismarko/caproto-apps"
 
 # [tool.setuptools]
 # packages = ["haven", "firefly"]
