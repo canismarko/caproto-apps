@@ -141,7 +141,6 @@ async def test_heartbeat_flags(test_ioc):
     # Flag for ISUP being set
     sock.sendto.clear()
     await alive_group.isup.write(1)
-    print(alive_group.itrig.value, alive_group.rrsts.value)
     await alive_group.send_heartbeat()
     message = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = struct.unpack(">H", message[20:22])[0]
@@ -260,7 +259,7 @@ async def test_env_variable_list(test_ioc):
     await alive_group.evd4.write("")
     await alive_group.evd5.write("")
     await alive_group.ev2.write("HOST_ARCH")
-    assert alive_group.env_variables == ["ENGINEER", "HOST_ARCH"]
+    assert list(alive_group.env_variables.keys()) == ["ENGINEER", "HOST_ARCH"]
     
     
 @pytest.mark.asyncio
@@ -296,3 +295,14 @@ async def test_read_status_fields(test_ioc, writer):
     assert alive_group.rrsts.value == "Idle"
 
 
+@pytest.mark.asyncio
+async def test_changing_env_variables(test_ioc):
+    """Check that the read status is updated if the environmental variables change."""
+    alive_group = test_ioc.alive
+    await alive_group.ev1.write("ENGINEER")
+    await alive_group.rrsts.write("Idle")
+    # from caproto.asyncio.server import AsyncioAsyncLayer
+    # print(alive_group.rrsts.scan)
+    await alive_group.check_env(alive_group.rrsts.scan, None)
+    # Check that queued was set
+    assert alive_group.rrsts.value == "Queued"

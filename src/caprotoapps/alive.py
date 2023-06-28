@@ -14,6 +14,7 @@ Example usage:
 
 #!/usr/bin/env python3
 from contextlib import contextmanager
+from collections import OrderedDict
 import logging
 import sys
 import time
@@ -27,7 +28,7 @@ import grp
 import enum
 import struct
 import socket
-from typing import Sequence
+from typing import Sequence, Mapping
 
 from caproto import ChannelType, SkipWrite
 from caproto.server import (
@@ -196,6 +197,7 @@ class AliveGroup(PVGroup):
     default_ioc_name: str
     default_remote_host: str
     default_remote_port: int
+    _env: OrderedDict = None
 
     class HostReadStatus(enum.IntEnum):
         Idle = 0
@@ -376,7 +378,7 @@ class AliveGroup(PVGroup):
         # Send the env variables message
         messages = env_messages(
             ioc_type=self.ioc_type,
-            env_variables=self.env_variables,
+            env_variables=list(self.env_variables.keys()),
             
         )
         for msg in messages:
@@ -392,29 +394,41 @@ class AliveGroup(PVGroup):
             await self.arsts.write("Idle")
 
     @property
-    def env_variables(self):
-        """The list of environmental variables that are to be returned to the
+    def env_variables(self) -> OrderedDict:
+        """The dict of environmental variables that are to be returned to the
         daemon.
 
         """
-        evars = []
+        evars = OrderedDict()
         for i in range(1, 17):
             # Check custom values first
-            val = getattr(self, f"ev{i}").value
-            if len(val) <= 0:
+            key = getattr(self, f"ev{i}").value
+            if len(key) <= 0:
                 # No custom value, use default value instead
-                val = getattr(self, f"evd{i}").value
+                key = getattr(self, f"evd{i}").value
             # Make sure there's a variable there
-            if len(val) > 0:
-                evars.append(val)
+            if len(key) > 0:
+                evars[key] = os.environ.get(key, "")
         return evars
     
     val = pvproperty(
         name=".VAL", value=0, dtype=int, doc="Heartbeat Value", read_only=True
     )
 
+    async def check_env(self, instance, async_lib=None):
+        """Update read status PVs if environmental variables have changed."""
+        new_vars = self.env_variables
+        old_vars = self._env
+        if new_vars != old_vars:
+            # Environment has changed, so queue read status updates
+            await self.rrsts.write("Queued")
+            await self.arsts.write("Queued")
+            self._env = new_vars
+            
+
     @property
     def ioc_type(self):
+
         """Determine the IOC type based on the current platform."""
         if sys.platform.startswith("linux"):
             return IOCType.LINUX
@@ -471,6 +485,8 @@ class AliveGroup(PVGroup):
         doc="Remote Host Read Status",
         read_only=True,
     )
+    rrsts = rrsts.scan(1)(check_env)
+
     ahost = pvproperty(
         name=".AHOST",
         value="",
