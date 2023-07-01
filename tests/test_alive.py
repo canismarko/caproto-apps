@@ -60,7 +60,6 @@ def test_ioc():
     ioc.alive.incarnation = alive.epics_time(1686882446.0032349)
     ioc.alive.async_lib = asyncio
     ioc.alive.send_udp_message = mock.AsyncMock()
-    ioc.alive
     yield ioc
 
 
