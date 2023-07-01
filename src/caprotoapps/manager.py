@@ -246,6 +246,13 @@ class ManagerGroup(PVGroup):
         dtype=ChannelType.ENUM,
         doc="The current status of the IOC."
     )
+
+    @status.scan(1, use_scan_field=True)
+    async def status(self, instance, async_lib):
+        loop = self.async_lib.get_running_loop()
+        new_status = await loop.run_in_executor(None, self.runner.ioc_status)
+        await instance.write(new_status)
+        
     console_command = pvproperty(
         name="console",
         value="",

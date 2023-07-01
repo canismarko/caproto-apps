@@ -4,6 +4,7 @@ import asyncio
 
 import pytest
 from caproto.server import PVGroup, SubGroup
+from caproto.asyncio.server import AsyncioAsyncLayer
 
 from caprotoapps import manager
 
