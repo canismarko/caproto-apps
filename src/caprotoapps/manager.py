@@ -22,6 +22,8 @@ import time
 import asyncio
 from functools import partial
 from threading import Lock
+import subprocess
+from subprocess import PIPE, STDOUT
 import re
 import os
 import getpass
@@ -32,6 +34,7 @@ import socket
 from enum import IntEnum
 from typing import Sequence, Mapping, Optional
 
+from fabric import Connection
 from caproto import ChannelType, SkipWrite
 from caproto.server import (
     PVGroup,
@@ -120,6 +123,12 @@ class BaseRunner():
 class BCDARunner(BaseRunner):
     def __init__(self, script_path: Path):
         self.script_path = script_path
+
+    def execute_script(self, args):
+        """Execute *args* on local machine."""
+        result = subprocess.run(args, stdout=PIPE, stderr=STDOUT)
+        response = result.stdout.decode("utf-8").strip()
+        return response
         
     def start_ioc(self):
         """Start the managed IOC."""
@@ -163,10 +172,18 @@ class BCDARunner(BaseRunner):
 
 
 class BCDASSHRunner(BCDARunner):
+    ssh_connection: Connection
+    
     def __init__(self, user: str, host: str, script_path: Path):
-        self.user = user
-        self.host = host
+        self.ssh_connection = Connection(host=host, user=user)
         super().__init__(script_path=script_path)
+
+    def execute_script(self, args):
+        """Execute *args* on local machine."""
+        cmd = " ".join(args)
+        result = self.ssh_connection.run(cmd, hide="out")
+        response = result.stdout.strip()
+        return response
 
 
 def guess_runner(script: str):
@@ -197,7 +214,6 @@ class ManagerGroup(PVGroup):
     def __init__(self, *args, script: str, runner: BaseRunner = None, **kwargs):
         self._script = script
         # Set up a runner if one does not exist
-        print("Guessing runner")
         if runner is None:
             self.runner = guess_runner(script)
         else:
@@ -215,6 +231,11 @@ class ManagerGroup(PVGroup):
         await loop.run_in_executor(None, self.runner.start_ioc)
         # Return the trigger to its default value
         return "Off"
+
+    @start.startup
+    async def start(self, instance, async_lib):
+        # Just here to get the async lib on startup
+        self.async_lib = async_lib.library
     
     stop = pvproperty(name="stop", value="Off", dtype=bool, doc="Stop the remote IOC.")
 
@@ -251,7 +272,9 @@ class ManagerGroup(PVGroup):
     async def status(self, instance, async_lib):
         loop = self.async_lib.get_running_loop()
         new_status = await loop.run_in_executor(None, self.runner.ioc_status)
-        await instance.write(new_status)
+        old_status = getattr(IOCStatus, instance.value)
+        if new_status != old_status:
+            await instance.write(new_status)
         
     console_command = pvproperty(
         name="console",

@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: System :: Hardware",
 ]
 keywords = ["caproto", "controls"]
-dependencies = ["caproto"]
+dependencies = ["caproto", "fabric"]
 
 [project.optional-dependencies]
 dev = ["black", "pytest", "pytest-asyncio", "build", "twine"]
