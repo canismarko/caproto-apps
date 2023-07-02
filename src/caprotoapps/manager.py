@@ -172,16 +172,22 @@ class BCDARunner(BaseRunner):
 
 
 class BCDASSHRunner(BCDARunner):
-    ssh_connection: Connection
+    ssh_connection: Connection = None
     
     def __init__(self, user: str, host: str, script_path: Path):
-        self.ssh_connection = Connection(host=host, user=user)
+        self.user = user
+        self.host = host
         super().__init__(script_path=script_path)
 
     def execute_script(self, args):
         """Execute *args* on local machine."""
+        # Establish connection
+        if self.ssh_connection is None:
+            self.ssh_connection = Connection(host=self.host, user=self.user)
+        # Send command to the remote host
         cmd = " ".join(args)
         result = self.ssh_connection.run(cmd, hide="out")
+        # Parse the response
         response = result.stdout.strip()
         return response
 
