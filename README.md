@@ -4,7 +4,6 @@
 
 Implementations of select EPICS-compatible records in caproto.
 
-Currently the only app available is the **Alive** app.
 
 ## Installation
 
@@ -69,6 +68,34 @@ class MyAliveGroup(AliveGroup):
     evd6 = envvar_default_property(1, "STATUS")
 
 ```
+
+### Manager
+
+The ``ManagerGroup`` allows for remote management of other
+IOCs. Currently the only supported style is that of APS beamline
+controls group. To allow control of an IOC, specify the path to the
+startup script using the *script* parameter.
+
+```
+from caproto.server import SubGroup
+from caprotoapps import ManagerGroup
+
+class MyIOC(PVGroup):
+    ioc_manager = SubGroup(ManagerGroup,
+    		           script="/path/to/script.sh")
+```			 
+
+If the script can be reached on another machine via SSH, then the
+following pattern can also be used, provided that passwordless login
+is set up (i.e. using ``ssh-keygen``):
+
+```
+class MyIOC(PVGroup):
+    ioc_manager = SubGroup(ManagerGroup,
+    		           script="myuser@myhost:/path/to/script.sh")
+```
+
+**Note:** The *console* PV is currently not implemented.
 
 ## Development
 
