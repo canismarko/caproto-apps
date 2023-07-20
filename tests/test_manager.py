@@ -6,28 +6,39 @@ import pytest
 from caproto.server import PVGroup, SubGroup
 from caproto.asyncio.server import AsyncioAsyncLayer
 
-from caprotoapps import manager
+from caprotoapps import manager, exceptions
 
 class MockIOC(PVGroup):
-    manager = SubGroup(manager.ManagerGroup,
+    manager_rw = SubGroup(manager.ManagerGroup,
                        prefix="25idc",
-                       script="myuser@myhost:/path/to/script")
+                          script="myuser@myhost:/path/to/script",
+                          allow_start=True,
+                          allow_stop=True)
+    manager_ro = SubGroup(manager.ManagerGroup,
+                          prefix="255idc",
+                          script="myuser@myhost:/path/to/script",
+                          allow_start=False,
+                          allow_stop=False)
 
 
 @pytest.fixture
 def mock_ioc():
     ioc = MockIOC(prefix="test_ioc:")
-    ioc.manager.runner = mock.MagicMock()
-    ioc.manager.async_lib = asyncio
-    # ioc.alive.send_udp_message = mock.AsyncMock()
-    # ioc.alive
+    for group in [ioc.manager_rw, ioc.manager_ro]:
+        group.runner = mock.MagicMock()
+        group.async_lib = asyncio
     yield ioc
 
 
 @pytest.fixture
 def mock_manager(mock_ioc):
-    yield mock_ioc.manager
+    yield mock_ioc.manager_rw
 
+
+@pytest.fixture
+def mock_manager_ro(mock_ioc):
+    yield mock_ioc.manager_ro
+    
 
 def test_parse_remote_script_location():
     result = manager.parse_script_location(
@@ -121,3 +132,35 @@ async def test_ioc_console(mock_manager):
     assert mock_manager.console_command.value == ""    
 
     
+@pytest.mark.asyncio
+async def test_allow_start(mock_manager_ro, mock_manager):
+    # Check read-only *startable* PV
+    await mock_manager.startable.startup(mock_manager.startable, asyncio)
+    assert mock_manager.startable.value == "On"
+    await mock_manager_ro.startable.startup(mock_manager_ro.startable, asyncio)
+    assert mock_manager_ro.startable.value == "Off"
+    # Does starting it raise an exception?
+    with pytest.raises(exceptions.NotPermitted):
+        await mock_manager_ro.start.write("On")
+
+
+@pytest.mark.asyncio
+async def test_allow_stop(mock_manager_ro, mock_manager):
+    # Check read-only *stoppable* PV
+    await mock_manager.stoppable.startup(mock_manager.stoppable, asyncio)
+    assert mock_manager.stoppable.value == "On"
+    await mock_manager_ro.stoppable.startup(mock_manager_ro.stoppable, asyncio)
+    assert mock_manager_ro.stoppable.value == "Off"
+    # Does stoping it raise an exception?
+    with pytest.raises(exceptions.NotPermitted):
+        await mock_manager_ro.stop.write("On")
+
+
+@pytest.mark.asyncio
+async def test_allow_restart(mock_manager_ro):
+    await mock_manager_ro.stoppable.startup(mock_manager_ro.stoppable, asyncio)
+    await mock_manager_ro.startable.startup(mock_manager_ro.startable, asyncio)
+    # Does restarting it raise an exception?
+    with pytest.raises(exceptions.NotPermitted):
+        await mock_manager_ro.restart.write("On")
+        

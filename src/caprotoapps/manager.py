@@ -47,6 +47,8 @@ from caproto.server import (
     scan_wrapper,
 )
 
+from . import exceptions
+
 log = logging.getLogger(__name__)
 
 
@@ -215,10 +217,18 @@ class ManagerGroup(PVGroup):
     runner
       An instance of ``BaseRunner`` or one of its subclasses. If
       omitted, a default runner will be used based on *script*.
-
+    allow_start
+      Whether or not it is permitted to start the IOC through this
+      manager
+    allow_stop
+      Whether or not it is permitted to stop the IOC through this
+      manager
+    
     """
-    def __init__(self, *args, script: str, runner: BaseRunner = None, **kwargs):
+    def __init__(self, *args, script: str, runner: BaseRunner = None, allow_start: bool = True, allow_stop: bool = False, **kwargs):
         self._script = script
+        self.allow_start = allow_start
+        self.allow_stop = allow_stop
         # Set up a runner if one does not exist
         if runner is None:
             self.runner = guess_runner(script)
@@ -227,11 +237,22 @@ class ManagerGroup(PVGroup):
         super().__init__(*args, **kwargs)
 
     # PVs for changing the IOC state
+    startable = pvproperty(name="startable", value="On", dtype=bool, read_only=True, doc="Can the remote IOC be started.")
+
+    @startable.startup
+    async def startable(self, instance, async_lib):
+        is_startable = "On" if self.allow_start else "Off"
+        await instance.write(is_startable)
+            
     start = pvproperty(name="start", value="Off", dtype=bool, doc="Start the remote IOC.")
 
     @start.putter
     async def start(self, instance, value):
         """Trigger a remote IOC to start."""
+        # Confirm we are allow to start the IOC
+        if self.startable.value != "On":
+            msg = "Cannot start IOC. Provide *allow_start=True* to enable remote starting."
+            raise exceptions.NotPermitted(msg)
         # Execute the runner's control function
         loop = self.async_lib.get_running_loop()
         await loop.run_in_executor(None, self.runner.start_ioc)
@@ -242,11 +263,23 @@ class ManagerGroup(PVGroup):
     async def start(self, instance, async_lib):
         # Just here to get the async lib on startup
         self.async_lib = async_lib.library
+
+    # PVs for changing the IOC state
+    stoppable = pvproperty(name="stoppable", value="On", dtype=bool, read_only=True, doc="Can the remote IOC be stopped.")
+
+    @stoppable.startup
+    async def stoppable(self, instance, async_lib):
+        is_stoppable = "On" if self.allow_stop else "Off"
+        await instance.write(is_stoppable)
     
     stop = pvproperty(name="stop", value="Off", dtype=bool, doc="Stop the remote IOC.")
 
     @stop.putter
     async def stop(self, instance, value):
+        # Confirm we are allow to start the IOC
+        if self.stoppable.value != "On":
+            msg = "Cannot stop IOC. Provide *allow_stop=True* to enable remote stopping."
+            raise exceptions.NotPermitted(msg)
         # Execute the runner's control function
         loop = self.async_lib.get_running_loop()
         await loop.run_in_executor(None, self.runner.stop_ioc)
@@ -257,6 +290,10 @@ class ManagerGroup(PVGroup):
 
     @restart.putter
     async def restart(self, instance, value):
+        # Confirm we are allowed to restart the IOC
+        if (self.startable.value != "On") or (self.stoppable.value != "On"):
+            msg = "Cannot stop IOC. Provide *allow_stop=True* to enable remote stopping."
+            raise exceptions.NotPermitted(msg)
         # Execute the runner's control function
         loop = self.async_lib.get_running_loop()
         await loop.run_in_executor(None, self.runner.restart_ioc)
