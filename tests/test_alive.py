@@ -175,7 +175,7 @@ async def test_ioc_name(monkeypatch):
 @pytest.fixture()
 def writer():
     writer = mock.AsyncMock()
-    writer.get_extra_info = mock.MagicMock(return_value = ("9.9.9.9", 0))
+    writer.get_extra_info = mock.MagicMock(return_value=("9.9.9.9", 0))
     writer.write = mock.MagicMock()
     writer.close = mock.MagicMock()
     yield writer
@@ -217,10 +217,7 @@ async def test_env_callback(test_ioc, writer):
     # Check response messages
     messages = [call.args[0] for call in writer.write.call_args_list]
     # Information message
-    info_target = (
-        b"\x00\x05"  # Version
-        b"\x00\x02"  # IOC type: Linux
-    )
+    info_target = b"\x00\x05" b"\x00\x02"  # Version  # IOC type: Linux
     assert messages[0].startswith(info_target)
 
 
@@ -232,17 +229,22 @@ def test_env_messages(monkeypatch):
     body_length = sum([len(k) + len(v) for k, v in env_variables])
     for key, val in env_variables:
         monkeypatch.setenv(key, val)
-    messages = alive.env_messages(version=4, ioc_type=alive.IOCType.LINUX,
-                                  env_variables=[d[0] for d in env_variables])
+    messages = alive.env_messages(
+        version=4,
+        ioc_type=alive.IOCType.LINUX,
+        env_variables=[d[0] for d in env_variables],
+    )
     # Check the header
     header, *remaining_messages = messages
     expected_length = 10 + sum([len(m) for m in remaining_messages])
-    expected_header = b"".join([
-        b"\x00\x04",  # Version
-        b"\x00\x02",  # IOC type: Linux
-        struct.pack(">I", expected_length), # E.g. b"\x00\x00\x00\x50" 
-        b"\x00\x02", # Variable count
-    ])
+    expected_header = b"".join(
+        [
+            b"\x00\x04",  # Version
+            b"\x00\x02",  # IOC type: Linux
+            struct.pack(">I", expected_length),  # E.g. b"\x00\x00\x00\x50"
+            b"\x00\x02",  # Variable count
+        ]
+    )
     assert header == expected_header
     # Check individual variable's messages
     assert len(remaining_messages) == len(env_variables) + 3  # +3 for IOC-specific data
@@ -259,8 +261,8 @@ async def test_env_variable_list(test_ioc):
     await alive_group.evd5.write("")
     await alive_group.ev2.write("HOST_ARCH")
     assert list(alive_group.env_variables.keys()) == ["ENGINEER", "HOST_ARCH"]
-    
-    
+
+
 @pytest.mark.asyncio
 async def test_read_status_fields(test_ioc, writer):
     """Check that the ITRIG field gets set automatically."""
@@ -272,7 +274,7 @@ async def test_read_status_fields(test_ioc, writer):
     # Check that the flag is off if no env update is requested
     await alive_group.send_heartbeat()
     assert alive_group.send_udp_message.called
-    msg = alive_group.send_udp_message.call_args.kwargs['message']
+    msg = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = msg[20:22]
     assert flags == b"\x00\x00"
     # Setup the trigger status
@@ -286,7 +288,7 @@ async def test_read_status_fields(test_ioc, writer):
     assert alive_group.rrsts.value == "Due"
     # Check that the message had the right flags set
     assert alive_group.send_udp_message.called
-    msg = alive_group.send_udp_message.call_args.kwargs['message']
+    msg = alive_group.send_udp_message.call_args.kwargs["message"]
     flags = msg[20:22]
     assert flags == b"\x00\x01"
     # Check that the read status flag gets cleared

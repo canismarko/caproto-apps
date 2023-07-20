@@ -8,17 +8,22 @@ from caproto.asyncio.server import AsyncioAsyncLayer
 
 from caprotoapps import manager, exceptions
 
+
 class MockIOC(PVGroup):
-    manager_rw = SubGroup(manager.ManagerGroup,
-                       prefix="25idc",
-                          script="myuser@myhost:/path/to/script",
-                          allow_start=True,
-                          allow_stop=True)
-    manager_ro = SubGroup(manager.ManagerGroup,
-                          prefix="255idc",
-                          script="myuser@myhost:/path/to/script",
-                          allow_start=False,
-                          allow_stop=False)
+    manager_rw = SubGroup(
+        manager.ManagerGroup,
+        prefix="25idc",
+        script="myuser@myhost:/path/to/script",
+        allow_start=True,
+        allow_stop=True,
+    )
+    manager_ro = SubGroup(
+        manager.ManagerGroup,
+        prefix="255idc",
+        script="myuser@myhost:/path/to/script",
+        allow_start=False,
+        allow_stop=False,
+    )
 
 
 @pytest.fixture
@@ -38,12 +43,10 @@ def mock_manager(mock_ioc):
 @pytest.fixture
 def mock_manager_ro(mock_ioc):
     yield mock_ioc.manager_ro
-    
+
 
 def test_parse_remote_script_location():
-    result = manager.parse_script_location(
-        "my_user@myhost:/path/to/script"
-    )
+    result = manager.parse_script_location("my_user@myhost:/path/to/script")
     user, host, path = result
     assert user == "my_user"
     assert host == "myhost"
@@ -51,9 +54,7 @@ def test_parse_remote_script_location():
 
 
 def test_parse_local_script_location():
-    result = manager.parse_script_location(
-        "/path/to/script"
-    )
+    result = manager.parse_script_location("/path/to/script")
     user, host, path = result
     assert user == None
     assert host == None
@@ -67,21 +68,29 @@ def test_bcda_runner():
     runner.start_ioc()
     # Was the script executed?
     assert runner.execute_script.called
-    assert runner.execute_script.call_args.kwargs['args'] == ['/path/to/script', 'start']
+    assert runner.execute_script.call_args.kwargs["args"] == [
+        "/path/to/script",
+        "start",
+    ]
     # Check that the stop method executes commands
     runner.execute_script.reset_mock()
     runner.stop_ioc()
     # Was the script executed?
     assert runner.execute_script.called
-    assert runner.execute_script.call_args.kwargs['args'] == ['/path/to/script', 'stop']
+    assert runner.execute_script.call_args.kwargs["args"] == ["/path/to/script", "stop"]
     # Check that the restart method executes commands
     runner.execute_script.reset_mock()
     runner.restart_ioc()
     # Was the script executed?
     assert runner.execute_script.called
-    assert runner.execute_script.call_args.kwargs['args'] == ['/path/to/script', 'restart']
+    assert runner.execute_script.call_args.kwargs["args"] == [
+        "/path/to/script",
+        "restart",
+    ]
     # Check the status method returns the IOC status if on
-    runner.execute_script.return_value = "25idc is running (pid=717809) in a screen session (pid=717808)"
+    runner.execute_script.return_value = (
+        "25idc is running (pid=717809) in a screen session (pid=717808)"
+    )
     assert runner.ioc_status() == manager.IOCStatus.Running
     # Check the status method returns the IOC status if off
     runner.execute_script.return_value = "25idc is not running"
@@ -94,12 +103,14 @@ def test_manager_loads_runner():
     assert isinstance(local_manager.runner, manager.BCDARunner)
     assert local_manager.runner.script_path == Path("/path/to/script")
     # Now a remote script via SSH
-    ssh_manager = manager.ManagerGroup(prefix="manager", script="myuser@myhost:/path/to/script")
+    ssh_manager = manager.ManagerGroup(
+        prefix="manager", script="myuser@myhost:/path/to/script"
+    )
     assert isinstance(ssh_manager.runner, manager.BCDASSHRunner)
     assert ssh_manager.runner.user == "myuser"
     assert ssh_manager.runner.host == "myhost"
     assert ssh_manager.runner.script_path == Path("/path/to/script")
-    
+
 
 @pytest.mark.asyncio
 async def test_start_ioc(mock_manager):
@@ -129,9 +140,9 @@ async def test_ioc_status(mock_manager):
 
 @pytest.mark.asyncio
 async def test_ioc_console(mock_manager):
-    assert mock_manager.console_command.value == ""    
+    assert mock_manager.console_command.value == ""
 
-    
+
 @pytest.mark.asyncio
 async def test_allow_start(mock_manager_ro, mock_manager):
     # Check read-only *startable* PV
@@ -163,4 +174,3 @@ async def test_allow_restart(mock_manager_ro):
     # Does restarting it raise an exception?
     with pytest.raises(exceptions.NotPermitted):
         await mock_manager_ro.restart.write("On")
-        
