@@ -225,7 +225,7 @@ class ManagerGroup(PVGroup):
       manager
     
     """
-    def __init__(self, *args, script: str, runner: BaseRunner = None, allow_start: bool = True, allow_stop: bool = False, **kwargs):
+    def __init__(self, *args, script: str, runner: BaseRunner = None, allow_start: bool = True, allow_stop: bool = True, **kwargs):
         self._script = script
         self.allow_start = allow_start
         self.allow_stop = allow_stop
