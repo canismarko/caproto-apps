@@ -77,7 +77,8 @@ def envvar_default_property(num: int, value: str = ""):
         read_only=True,
     )
 
-def env_messages(*, version: int=5, ioc_type: int, env_variables: Sequence):
+
+def env_messages(*, version: int = 5, ioc_type: int, env_variables: Sequence):
     """Construct the environmental variables message.
 
     Message is suitable to send back to the remote host.
@@ -90,32 +91,40 @@ def env_messages(*, version: int=5, ioc_type: int, env_variables: Sequence):
         name = key.encode(encoding)
         val = os.environ.get(key, "")
         val = val.encode(encoding)
-        msg = b"".join([
-            struct.pack(">B", len(name)),  # name length
-            name,                          # variable name
-            struct.pack(">H", len(val)),   # value length
-            val,                           # variable value
-        ])
+        msg = b"".join(
+            [
+                struct.pack(">B", len(name)),  # name length
+                name,  # variable name
+                struct.pack(">H", len(val)),  # value length
+                val,  # variable value
+            ]
+        )
         env_messages.append(msg)
     # Build the extra os-specific info
     extra_messages = []
-        # Extra data depending on IOC type
+    # Extra data depending on IOC type
     if ioc_type == IOCType.LINUX:
         uid = getpass.getuser().encode(encoding)
-        uid_msg = b"".join([
-            struct.pack(">B", len(uid)),  # string length
-            uid,
-        ])
+        uid_msg = b"".join(
+            [
+                struct.pack(">B", len(uid)),  # string length
+                uid,
+            ]
+        )
         gid = grp.getgrgid(os.getegid()).gr_name.encode(encoding)
-        gid_msg = b"".join([
-            struct.pack(">B", len(gid)),  # string length
-            gid,
-        ])
+        gid_msg = b"".join(
+            [
+                struct.pack(">B", len(gid)),  # string length
+                gid,
+            ]
+        )
         hostname = socket.gethostname().encode(encoding)
-        hostname_msg = b"".join([
-            struct.pack(">B", len(hostname)),  # string length
-            hostname,
-        ])
+        hostname_msg = b"".join(
+            [
+                struct.pack(">B", len(hostname)),  # string length
+                hostname,
+            ]
+        )
         extra_messages = [uid_msg, gid_msg, hostname_msg]
         log.debug(f"Sending extra info: {uid_msg=}, {gid_msg=}, {hostname_msg=}")
     # Build the header message
@@ -132,6 +141,7 @@ def env_messages(*, version: int=5, ioc_type: int, env_variables: Sequence):
     yield header_message
     yield from env_messages
     yield from extra_messages
+
 
 def heartbeat_message(
     magic_number: int,
@@ -283,7 +293,7 @@ class AliveGroup(PVGroup):
             return (addr, port)
         else:
             raise InvalidServerAddress((addr, port))
-    
+
     async def send_heartbeat(self) -> bool:
         """Send a heartbeat message to the alive server.
 
@@ -300,7 +310,8 @@ class AliveGroup(PVGroup):
             return False
         # Prepare the UDP message
         next_heartbeat = self.val.value + 1
-        make_message = partial(heartbeat_message, 
+        make_message = partial(
+            heartbeat_message,
             magic_number=self.hmag.value,
             incarnation=self.incarnation,
             current_time=time.time(),
@@ -335,7 +346,7 @@ class AliveGroup(PVGroup):
         except InvalidServerAddress:
             pass
         else:
-            request_read = (self.arsts.value=="Queued")
+            request_read = self.arsts.value == "Queued"
             message = make_message(request_read=request_read)
             await self.send_udp_message(message=message, address=(addr, port))
             sent_to_aux_host = True
@@ -347,11 +358,10 @@ class AliveGroup(PVGroup):
                     await self.arsts.write("Overdue")
         # Update the read status PVs
         if sent_to_remote_host or sent_to_aux_host:
-            # Update the heartbeat counter            
+            # Update the heartbeat counter
             await self.val.write(next_heartbeat)
         else:
             log.debug(f"Skipping heartbeat, no valid host set.")
-            
 
     async def send_udp_message(self, message, address):
         """Open a socket and deliver the *message* via UDP to *address*."""
@@ -364,12 +374,14 @@ class AliveGroup(PVGroup):
     async def handle_env_request(self, reader, writer):
         # Check for conditions that result in no data being sent
         remote_addr, remote_port = writer.get_extra_info("peername")
-        bad_hostname = (remote_addr not in [self.raddr.value, self.aaddr.value])
+        bad_hostname = remote_addr not in [self.raddr.value, self.aaddr.value]
         is_suppressed = self.isup.value not in ["Off", False, 0]
         if is_suppressed:
             log.debug(f"Suppressing environmental variable reply: {self.isup.value=}")
         if bad_hostname:
-            log.debug(f"Refused env request from host {remote_addr}. Expected {self.raddr.value}")
+            log.debug(
+                f"Refused env request from host {remote_addr}. Expected {self.raddr.value}"
+            )
         if is_suppressed or bad_hostname:
             # Invalid connection: close immediately
             writer.close()
@@ -379,7 +391,6 @@ class AliveGroup(PVGroup):
         messages = env_messages(
             ioc_type=self.ioc_type,
             env_variables=list(self.env_variables.keys()),
-            
         )
         for msg in messages:
             log.debug(f"Sending environment message: {msg}")
@@ -410,7 +421,7 @@ class AliveGroup(PVGroup):
             if len(key) > 0:
                 evars[key] = os.environ.get(key, "")
         return evars
-    
+
     val = pvproperty(
         name=".VAL", value=0, dtype=int, doc="Heartbeat Value", read_only=True
     )
@@ -424,11 +435,9 @@ class AliveGroup(PVGroup):
             await self.rrsts.write("Queued")
             await self.arsts.write("Queued")
             self._env = new_vars
-            
 
     @property
     def ioc_type(self):
-
         """Determine the IOC type based on the current platform."""
         if sys.platform.startswith("linux"):
             return IOCType.LINUX
@@ -590,6 +599,7 @@ class AliveGroup(PVGroup):
         doc="TCP Information Port Number",
         read_only=True,
     )
+
     @iport.startup
     async def iport(self, instance, async_lib):
         """Start a TCP server for env request from the alive daemon."""
@@ -598,7 +608,7 @@ class AliveGroup(PVGroup):
             tcp_server = await async_lib.library.start_server(
                 client_connected_cb=self.handle_env_request,
                 port=instance.value,
-            )            
+            )
         except Exception as exc:
             # Failed
             await self.ipsts.write(self.InformationPortStatus.Inoperable)
@@ -610,7 +620,7 @@ class AliveGroup(PVGroup):
             listen_port = ip4socket.getsockname()[1]
             await instance.write(listen_port)
             await self.ipsts.write(self.InformationPortStatus.Operable)
-        
+
     ipsts = pvproperty(
         name=".IPSTS",
         value=InformationPortStatus.Undetermined,
@@ -625,12 +635,13 @@ class AliveGroup(PVGroup):
         doc="Trigger Information Request",
         read_only=False,
     )
+
     @itrig.putter
     async def itrig(self, instance, value):
         await self.rrsts.write(self.HostReadStatus.Queued)
         await self.arsts.write(self.HostReadStatus.Queued)
         return "Off"
-    
+
     isup = pvproperty(
         name=".ISUP",
         value="Off",
@@ -661,7 +672,7 @@ class AliveGroup(PVGroup):
     evd14 = envvar_default_property(14)
     evd15 = envvar_default_property(15)
     evd16 = envvar_default_property(16)
-    
+
     ev1 = envvar_property(1)
     ev2 = envvar_property(2)
     ev3 = envvar_property(3)

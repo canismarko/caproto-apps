@@ -97,6 +97,21 @@ class MyIOC(PVGroup):
 
 **Note:** The *console* PV is currently not implemented.
 
+It is possible to **limit which IOCs can be started or stopped** via
+an IOC ManagerGroup using the *allow_start* and *allow_stop*
+parameters during initialization:
+
+```
+class MyIOC(PVGroup):
+    mission_critical_manager = SubGroup(ManagerGroup,
+					allow_start=True,
+					allow_stop=False)
+```
+
+The status PVs *startable* and *stoppable* are read-only indicators of
+whether the IOC can be controlled via this ManagerGroup. Re-starting
+an IOC requires both *allow_start* and *allow_stop* to be true.
+
 ## Development
 
 To install caproto-apps for development, first clone the github repository:
