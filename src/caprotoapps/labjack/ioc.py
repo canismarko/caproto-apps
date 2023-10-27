@@ -42,6 +42,8 @@ from caproto.server import (
     scan_wrapper,
 )
 
+from .driver import LabJackDriver
+
 log = logging.getLogger(__name__)
 
 
@@ -50,16 +52,17 @@ def ai_subgroup(num):
     subgroups = {}
     # Create pvproperties for each analog input
     for N in range(num):
-        ai_attrs = {
-            f"ai{N}_value": pvproperty(name=f"Ai{N}", record="ai", read_only=True, doc="Analog input value. This is polled in the driver, so either period or I/O Intr scanning can be used."),
-            f"ai{N}_enable": pvproperty(name=f"AiEnable{N}", record="bo", doc="Enable flag for this analog input channel. Disabled inputs are not read by the poller. Unconnected inputs should be disabled to improve accuracy on active channels and to reduce the polling time."),
-            f"ai{N}_mode": pvproperty(name=f"AiMode{N}", record="mbbo", doc="Input mode for this analog input channel. Choices are Volts and 9 different thermocouple types."),
-            f"ai{N}_temp_units": pvproperty(name=f"AiTempUnits{N}", record="mbbo", doc="Temperature units for this analog input channel if a thermocouple mode is selected. Choices are “K”, “C”, and “F”."),
-            f"ai{N}_diff": pvproperty(name=f"AiDiff{N}", record="mbbo", doc="Selects 'Single-Ended' or 'Differential' input mode on the T7 and T7-PRO. The T4 is always single-ended and the T8 is always differential. The driver constructs the strings and values based on the model."),
-            f"ai{N}_range": pvproperty(name=f"AiRange{N}", record="mbbo", doc="Selects the input range for this analog input channel.\n\nOn the T4 the range is fixed at +-10V on channels 0-3 and 0-2.5 on channels 4-11.\n\nOn the T7 the range choices are +-10V, +-1V, +-0.1V, and +-0.01V.\n\nOn the T8 there are 11 ranges from +-11V to +-0.15V.\n\nThe driver constructs the strings and values based on the model."),
-            f"ai{N}_resolution": pvproperty(name=f"AiResolution{N}", record="mbbo", doc="Selects the input resolution for this analog input channel. High values of resolution result in lower noise and longer ADC conversion time.\n\nResolution 0 is the default resolution for that model.\n\nThe T4 supports resolutions 1-5.\n\nThe T7 supports resolutions 1-8.\n\nThe T7-PRO supports resolutions 1-12. 1-8 use the 16-bit ADC and 9-12 use the 24-bit ADC\n\nThe T8 supports resolutions 1-16. However, these are automatically selected by the Range, and this record has no effect?"),
-        }
-        subgroups[f"ai{N}"] = SubGroup(type(f"ai{N}", (PVGroup,), ai_attrs), prefix="")
+        
+        class AiGroup(PVGroup):
+            value = pvproperty(name=f"Ai{N}", record="ai", read_only=True, doc="Analog input value. This is polled in the driver, so either period or I/O Intr scanning can be used.")
+            enable = pvproperty(name=f"AiEnable{N}", record="bo", doc="Enable flag for this analog input channel. Disabled inputs are not read by the poller. Unconnected inputs should be disabled to improve accuracy on active channels and to reduce the polling time.")
+            mode = pvproperty(name=f"AiMode{N}", record="mbbo", doc="Input mode for this analog input channel. Choices are Volts and 9 different thermocouple types.")
+            temp_units = pvproperty(name=f"AiTempUnits{N}", record="mbbo", doc="Temperature units for this analog input channel if a thermocouple mode is selected. Choices are “K”, “C”, and “F”.")
+            diff = pvproperty(name=f"AiDiff{N}", record="mbbo", doc="Selects 'Single-Ended' or 'Differential' input mode on the T7 and T7-PRO. The T4 is always single-ended and the T8 is always differential. The driver constructs the strings and values based on the model.")
+            range = pvproperty(name=f"AiRange{N}", record="mbbo", doc="Selects the input range for this analog input channel.\n\nOn the T4 the range is fixed at +-10V on channels 0-3 and 0-2.5 on channels 4-11.\n\nOn the T7 the range choices are +-10V, +-1V, +-0.1V, and +-0.01V.\n\nOn the T8 there are 11 ranges from +-11V to +-0.15V.\n\nThe driver constructs the strings and values based on the model.")
+            resolution = pvproperty(name=f"AiResolution{N}", record="mbbo", doc="Selects the input resolution for this analog input channel. High values of resolution result in lower noise and longer ADC conversion time.\n\nResolution 0 is the default resolution for that model.\n\nThe T4 supports resolutions 1-5.\n\nThe T7 supports resolutions 1-8.\n\nThe T7-PRO supports resolutions 1-12. 1-8 use the 16-bit ADC and 9-12 use the 24-bit ADC\n\nThe T8 supports resolutions 1-16. However, these are automatically selected by the Range, and this record has no effect?")
+            
+        subgroups[f"ai{N}"] = SubGroup(AiGroup, prefix="")
     # Create the PVGroup subclass with all the analog inputs
     return type("AnalogInputs", (PVGroup,), subgroups)
 
@@ -69,13 +72,23 @@ def ao_subgroup(num):
     subgroups = {}
     # Create pvproperties for each analog input
     for N in range(num):
-        ai_attrs = {
-            f"ao{N}_value": pvproperty(name=f"Ao{N}", record="ao", doc="Analog output value."),
-            f"ao{N}_tweak_value": pvproperty(name=f"Ao{N}TweakVal", record="ao", doc="The amount by which to tweak the out when the Tweak record is processed."),
-            f"ao{N}_tweak_up": pvproperty(name=f"Ao{N}TweakUp", record="calcout", doc="Tweaks the output up by TweakVal."),
-            f"ao{N}_tweak_down": pvproperty(name=f"Ao{N}TweakDown", record="calcout", doc="Tweaks the output down by TweakVal."),
-        }
-        subgroups[f"ao{N}"] = SubGroup(type(f"ao{N}", (PVGroup,), ai_attrs), prefix="")
+
+        class AoGroup(PVGroup):
+            value = pvproperty(name=f"Ao{N}", record="ao", doc="Analog output value.")
+            tweak_value = pvproperty(name=f"Ao{N}TweakVal", record="ao", doc="The amount by which to tweak the out when the Tweak record is processed.")
+            tweak_up = pvproperty(name=f"Ao{N}TweakUp", record="calcout", doc="Tweaks the output up by TweakVal.")
+            tweak_down = pvproperty(name=f"Ao{N}TweakDown", record="calcout", doc="Tweaks the output down by TweakVal.")
+
+            @value.putter
+            async def value(self, instance, value):
+                """Write the new analog output value to the labjack."""
+                old_val = instance.value
+                # Send the new value to the device
+                if value != old_val:
+                    driver = self.parent.parent.driver
+                    return await driver.write_analog_output(value=value, ao_num=N)
+        
+        subgroups[f"ao{N}"] = SubGroup(AoGroup, prefix="")
     # Create the PVGroup subclass with all the analog inputs
     return type("AnalogInputs", (PVGroup,), subgroups)
 
@@ -85,19 +98,42 @@ def dio_subgroup(num):
     subgroups = {}
     # Create pvproperties for each analog input
     for N in range(num):
-        dio_attrs = {
-            f"dio{N}_input": pvproperty(name=f"Bi{N}", record="bi", doc=""),
-            f"dio{N}_output": pvproperty(name=f"Bo{N}", record="bo", doc=""),
-            f"dio{N}_direction": pvproperty(name=f"Bd{N}", record="bo", doc=""),
-        }
-        subgroups[f"dio{N}"] = SubGroup(type(f"dio{N}", (PVGroup,), dio_attrs), prefix="")
+
+        class DIOGroup(PVGroup):
+            enum_values = {
+                "Off": 0,
+                "On": 1,
+            }
+            input = pvproperty(name=f"Bi{N}", value=False, record="bi", read_only=True, doc="")
+            output = pvproperty(name=f"Bo{N}", value=0, dtype=bool, record="bo", doc="")
+            direction = pvproperty(name=f"Bd{N}", value=False, record="bo", doc="")
+
+            @output.putter
+            async def output(self, instance, value):
+                """Write the new digital output value to the labjack."""
+                # Convert from enum strings to 1's and 0's
+                new_val = self.enum_values.get(value, value)
+                old_val = self.enum_values.get(instance.value, instance.value)
+                # Send the new value to the device driver
+                if new_val != old_val:
+                    driver = self.parent.parent.driver
+                    return await driver.write_digital_output(value=new_val, dio_num=N)
+        
+        subgroups[f"dio{N}"] = SubGroup(DIOGroup, prefix="")
     # Create the PVGroup subclass with all the analog inputs
     return type("DigitalIOs", (PVGroup,), subgroups)
-    
 
 
-class LabJackIOC(PVGroup):
-    """An IOC with PVs common to all Labjack devices."""
+class LabJackBase(PVGroup):
+    """An IOC with PVs common to all Labjack devices.
+
+    Does not include analog or digial I/O, since these differ from
+    device-to-device.
+
+    Most likely you want to use one of the subclasses that impelement
+    a specific labjack T-series device.
+
+    """
     # Device functions
     model_name = pvproperty(name="ModelName", value=0, record="mbbi", read_only=True, doc="Device model name. mbbi values and strings are 0='T4', 1='T7', 2='T7-Pro', 3='T8'")
     firmware_version = pvproperty(name="FirmwareVersion", value="", record="stringin", read_only=True, doc="Device firmware version.")
@@ -113,14 +149,10 @@ class LabJackIOC(PVGroup):
     ai_sampling_rate = pvproperty(name="AiSamplingRate", record="ao", doc="This sets the sampling rate of the ADC in Hz.\n\nIt applies to the T8 only.\n\nRecommended range is 100 to 10000 Hz.\n\nLower rates do more filtering in the ADC, reducing noise at the expense of speed.\n\nIncreasing the sampling rate will increase the noise in each reading.\n\nHowever, since the analog input records use the devAsynFloat64Average device support, increasing the rate can increase the number of samples averaged in the EPICS device support in a fixed period of time, provided it is not limited by PollSleepMS.\n\nBecause of this averaing in device support, increasing the sampling time from 100 Hz to 1000 Hz can actually result in a small decrease in noise.\n\nThe maximum rate that the values can be read from the device with PollSleepMS=0 is about 2000/s, so increasing the SamplingRate beyond 2000 will not result more averaging in EPICS device support.")
     device_reset = pvproperty(name="DeviceReset", record="bo", doc="Processing this record sets the device watchdog time to 10 s, and the watchdog timer function to device reset. This will reset the device after 10 seconds of communications inactivity. Processing this record, exiting the IOC application, and waiting at least 10 seconds will cause the device to reset. This can be used to remotely recover from a device malfunction that requires a reset. Note that the device will continue to reset every 10 seconds until the IOC successfully starts again. The IOC may occasionally fail to start after a DeviceReset because the device is currently resetting. Trying again will eventually succeed.")
 
-    # Analog inputs
-    analog_inputs = SubGroup(ai_subgroup(4), prefix="")
-
     # Analog outputs
     analog_outputs = SubGroup(ao_subgroup(2), prefix="")
 
     # Digital I/O
-    digital_io = SubGroup(dio_subgroup(2), prefix="")
     dio_word = pvproperty(name="DIOIn", record="longin", doc="Digital input value as a word, rather than individual bits. The ADDR parameter in the INP link defines which word is read. 0=DIO (bits 0-23), 1=FIO (bits 0-7), 2=EIO (bits 8-15), 3=CIO (bits 16-19), and 4=MIO (bits 20-22). The binary inputs are polled by the driver poller thread, so these records should have SCAN=”I/O Intr”.")
     eio_word = pvproperty(name="EIOIn", record="longin", doc="Digital input value as a word, rather than individual bits. The ADDR parameter in the INP link defines which word is read. 0=DIO (bits 0-23), 1=FIO (bits 0-7), 2=EIO (bits 8-15), 3=CIO (bits 16-19), and 4=MIO (bits 20-22). The binary inputs are polled by the driver poller thread, so these records should have SCAN=”I/O Intr”.")
     fio_word = pvproperty(name="FIOIn", record="longin", doc="Digital input value as a word, rather than individual bits. The ADDR parameter in the INP link defines which word is read. 0=DIO (bits 0-23), 1=FIO (bits 0-7), 2=EIO (bits 8-15), 3=CIO (bits 16-19), and 4=MIO (bits 20-22). The binary inputs are polled by the driver poller thread, so these records should have SCAN=”I/O Intr”.")
@@ -193,3 +225,55 @@ class LabJackIOC(PVGroup):
     wavegen_amplitude_1 = pvproperty(name="WaveGenAmplitude1", record="ao", doc="Controls the amplitude of the waveform. For internally predefined waveforms this directly controls the peak-to-peak amplitude in volts. For user-defined waveforms this is a scale factor that multiplies the values in the waveform, i.e. 1.0 outputs the user-defined waveform unchanged, 2.0 increases the amplitide by 2, etc. For both internal and used-defined waveforms changing the sign of the Amplitude controls the polarity of the signal.")
     wavegen_offset_0 = pvproperty(name="WaveGenOffset0", record="ao", doc="Controls the offset of the waveform in volts. For user-defined waveforms, this value is added to the waveform, i.e. 0.0 outputs the user-defined waveform unchanged, 1.0 adds 1 volt, etc.")
     wavegen_offset_1 = pvproperty(name="WaveGenOffset1", record="ao", doc="Controls the offset of the waveform in volts. For user-defined waveforms, this value is added to the waveform, i.e. 0.0 outputs the user-defined waveform unchanged, 1.0 adds 1 volt, etc.")
+
+    def __init__(self, *args, identifier, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Determine how many I/O channels this device has
+        num_ai = len(self.analog_inputs.groups)
+        # Create a driver to do the communication
+        self.driver = LabJackDriver(identifier=identifier, num_ai=num_ai)
+
+    async def read_inputs(self):
+        """Read the analog/digital inputs from the device, and write the
+        associated PVs.
+
+        """
+        inputs = await self.driver.read_inputs()
+        # Set the analog inputs
+        ai_vals = {k: v for k, v in inputs.items() if k[:3] == "AIN"}
+        for key, val in ai_vals.items():
+            pv = self.analog_inputs.groups[f"ai{key[3:]}"].value
+            await pv.write(val)
+        # Set individual digital inputs
+        dio_word = inputs['DIO_STATE']
+        mask = 0b1  # select which digital IO we're reading
+        for pv in self.digital_ios.groups.values():
+            val = bool(mask & dio_word)
+            await pv.input.write(val)
+            # Move the mask on to the next digital I/O
+            mask <<= 1
+        # Set digital input words
+        await self.dio_word.write(dio_word)
+        # FIO0:7 == DIO0:7
+        fio_word = 0b00000000000011111111 & dio_word
+        await self.fio_word.write(fio_word)
+        # EIO0:7 == DIO8:15
+        eio_word = 0b00001111111100000000 & dio_word
+        eio_word >>= 8
+        await self.eio_word.write(eio_word)
+        # CIO0:3 == DIO16:19
+        cio_word = 0b11110000000000000000 & dio_word
+        cio_word >>= 16
+        await self.cio_word.write(cio_word)
+
+
+class LabJackT4(LabJackBase):
+    """A labjack T4 DAQ.
+
+    Equipped with:
+
+    - 4 analog inputs
+    """
+    # Analog inputs
+    analog_inputs = SubGroup(ai_subgroup(4), prefix="")
+    digital_ios = SubGroup(dio_subgroup(16), prefix="")

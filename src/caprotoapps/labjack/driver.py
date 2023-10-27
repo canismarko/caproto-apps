@@ -1,0 +1,135 @@
+import asyncio
+
+from labjack import ljm
+
+
+DRIVER_VERSION = "3.0.0"  # Which EPICS driver version does this mimic?
+
+
+DEVICE_TYPES = {
+    4: "T4",
+    7: "T7",
+    8: "T8",
+}
+
+
+class LabJackDisconnected(IOError):
+    """The device is not connected."""
+    pass
+
+
+class LabJackDriver():
+    """A driver supporting a labjack IOC.
+
+    A wrapper around the relevant backend library, by default
+    Labjack's ljm library.
+
+    """
+    _handle = None
+    identifier: str
+    num_ai: int
+    
+    def __init__(self, identifier: str, num_ai:int = 16, *, api=ljm):
+        """Parameters
+        ==========
+        identifier
+          Which labjack should be controlled. Can either be an
+          internet address, a USB device, or "-2" for simulated
+          labjack.
+        api
+          The API library to use. By default will use Labjack's LJM
+          library. This is intended for writing tests.
+        num_ai
+        """
+        self.api = api
+        self.identifier = identifier
+        self.num_ai = num_ai
+
+    @property
+    def handle(self):
+        if self._handle is None:
+            raise LabJackDisconnected(self.identifier)
+        return self._handle
+
+    async def connect(self):
+        """Connect the driver to the actual labjack device."""
+        loop = asyncio.get_running_loop()
+        self._handle = await loop.run_in_executor(None, self.api.openS, "ANY", "ANY", self.identifier)
+        print(self._handle)
+
+    @property
+    def ljm_version(self):
+        return ljm.__version__
+
+    async def device_info(self) -> dict:
+        """Get basic information about the device.
+
+        This is only meant for info that will not change while the
+        device is connected, like device type and serial number.
+       
+        Returns
+        =======
+        dict
+          The device info as a dictionary.
+
+        """
+        loop = asyncio.get_running_loop()
+        # Get handle info (model number and connection details
+        handle_info = await loop.run_in_executor(None, self.api.getHandleInfo, self.handle)
+        device_type, conn_type, serial, ip, port, packet_size = handle_info
+        # Get the firmware version
+        firmware = await loop.run_in_executor(None, self.api.eReadName, "FIRMWARE_VERSION")
+        # Build the device info dictionary
+        info = {
+            "driver_version": DRIVER_VERSION,
+            "model_name": DEVICE_TYPES[device_type],
+            "serial_number": str(serial),
+            "firmware_version": str(firmware),
+            
+        }
+        return info
+
+    async def read_registers(self, names):
+        """Read the requested register names from the device."""
+        loop = asyncio.get_running_loop()
+        values = await loop.run_in_executor(None, self.api.eReadNames, len(names), names)
+        result = {name: val for name, val in zip(names, values)}
+        return result
+
+    async def write_register(self, name, value):
+        """Write a value to the given register."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.api.eWriteName, self.handle, name, value)
+
+
+    async def read_inputs(self):
+        registers = ["DIO_STATE", "DIO_DIRECTION"]
+        registers.extend([f"AIN{N}" for N in range(self.num_ai)])
+        return await self.read_registers(registers)
+
+    async def write_digital_output(self, dio_num, value):
+        """Write a new *value* to a digital output register *dio_num*.
+
+        To set DIO3 to HIGH, use
+
+        .. code:: python
+            
+            await driver.write_digital_output(dio_num=3, value=1)
+
+        """
+        name = f"DIO{dio_num}"
+        await self.write_register(name, value)
+
+    async def write_analog_output(self, ao_num, value):
+        """Write a new *value* to a analog output register *ao_num*.
+
+        To set DAC1 to 2.2, use
+
+        .. code:: python
+            
+            await driver.write_analog_output(ao_num=1, value=2.2)
+
+        """
+        name = f"DAC{ao_num}"
+        await self.write_register(name, value)
+        
