@@ -65,22 +65,22 @@ async def test_read_inputs(ioc):
     # Check that the inputs were updated
     assert ioc.pvdb['test_ioc:Ai0'].value == 0.7542197081184724
     # Check that the digital inputs were updated
-    assert ioc.pvdb['test_ioc:Bi0'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi1'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi2'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi3'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi4'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi5'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi6'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi7'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi8'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi9'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi10'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi11'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi12'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi13'].value == "Off"
-    assert ioc.pvdb['test_ioc:Bi14'].value == "On"
-    assert ioc.pvdb['test_ioc:Bi15'].value == "On"
+    assert ioc.pvdb['test_ioc:Bi0'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi1'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi2'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi3'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi4'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi5'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi6'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi7'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi8'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi9'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi10'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi11'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi12'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi13'].value == "Low"
+    assert ioc.pvdb['test_ioc:Bi14'].value == "High"
+    assert ioc.pvdb['test_ioc:Bi15'].value == "High"
     # Check that the digital words were updated
     assert ioc.pvdb['test_ioc:DIOIn'].value == 0b01001101000111011010
     # FIO0:7 == DIO0:7
@@ -102,7 +102,7 @@ async def test_digital_outputs(ioc):
 
 
 @pytest.mark.asyncio
-async def test_digital_outputs(ioc):
+async def test_analog_outputs(ioc):
     ioc.driver.api = mock.MagicMock()
     await ioc.driver.connect()
     # Set one of the binary outputs
@@ -111,3 +111,13 @@ async def test_digital_outputs(ioc):
     assert ioc.driver.api.eWriteName.called
     # Check that the PV was also updated
     assert ioc.pvdb['test_ioc:Ao0'].value == 3.14159
+
+
+@pytest.mark.asyncio
+async def test_digital_directions(ioc):
+    ioc.driver.api = mock.MagicMock()
+    await ioc.driver.connect()
+    # Set one of the binary outputs
+    await ioc.pvdb['test_ioc:Bd0'].write("Output")
+    # Check that the binary output was written
+    assert ioc.driver.api.eWriteName.called

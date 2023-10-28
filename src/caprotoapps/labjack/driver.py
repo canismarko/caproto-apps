@@ -96,11 +96,16 @@ class LabJackDriver():
         result = {name: val for name, val in zip(names, values)}
         return result
 
+    async def read_register(self, name):
+        """Read the single register from the device by name."""
+        loop = asyncio.get_running_loop()
+        value = await loop.run_in_executor(None, self.api.eReadName, name)
+        return value
+    
     async def write_register(self, name, value):
         """Write a value to the given register."""
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.api.eWriteName, self.handle, name, value)
-
 
     async def read_inputs(self):
         registers = ["DIO_STATE", "DIO_DIRECTION"]
@@ -133,3 +138,20 @@ class LabJackDriver():
         name = f"DAC{ao_num}"
         await self.write_register(name, value)
         
+    async def write_digital_direction(self, dio_num: int, direction: int):
+        """Set the given digital I/O pin to be either input or output.
+
+        The ping is determined by *dio_num*, and the direction is
+        determine by *direction* (0 = input, 1 = output).
+
+        """
+        # Get the current directions from the device
+        register = "DIO_DIRECTION"
+        dir_ = await self.read_register(register)
+        # Determine the new direction by bitwise manipulation
+        if direction == 0:
+            dir_ &= ~(1<<dio_num)
+        elif direction == 1:
+            dir_ |= (1<<dio_num)
+        # Send the new directions to the device
+        return await self.write_register(register, dir_)

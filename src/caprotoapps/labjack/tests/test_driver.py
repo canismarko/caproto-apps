@@ -130,3 +130,30 @@ async def test_write_digital_output(driver):
     assert driver.api.eWriteName.called
     handle = 2
     driver.api.eWriteName.assert_called_with(handle, "DAC1", 3.14159)
+
+
+@pytest.mark.asyncio
+async def test_write_digital_direction_input(driver):
+    await driver.connect()
+    # Set fake initial state coming from the API
+    driver.api.eReadName.return_value = 0b111111111
+    # Write a value
+    await driver.write_digital_direction(dio_num=1, direction=0)
+    # Check that the driver was called properly
+    assert driver.api.eWriteName.called
+    handle = 2
+    driver.api.eWriteName.assert_called_with(handle, "DIO_DIRECTION", 0b111111101)
+    
+
+@pytest.mark.asyncio
+async def test_write_digital_direction_output(driver):
+    await driver.connect()
+    # Set fake initial state coming from the API
+    driver.api.eReadName.return_value = 0b000000001000
+    # Write a value
+    await driver.write_digital_direction(dio_num=11, direction=1)
+    # Check that the driver was called properly
+    assert driver.api.eWriteName.called
+    handle = 2
+    driver.api.eWriteName.assert_called_with(handle, "DIO_DIRECTION", 0b100000001000)
+    

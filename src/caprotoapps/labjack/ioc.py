@@ -104,9 +104,13 @@ def dio_subgroup(num):
                 "Off": 0,
                 "On": 1,
             }
-            input = pvproperty(name=f"Bi{N}", value=False, record="bi", read_only=True, doc="")
-            output = pvproperty(name=f"Bo{N}", value=0, dtype=bool, record="bo", doc="")
-            direction = pvproperty(name=f"Bd{N}", value=False, record="bo", doc="")
+            enum_directions = {
+                "Input": 0,
+                "Output": 1,
+            }
+            input = pvproperty(name=f"Bi{N}", value=False, record="bi", read_only=True, enum_strings=["Low", "High"], doc="")
+            output = pvproperty(name=f"Bo{N}", value=0, dtype=bool, record="bo", enum_strings=["Low", "High"], doc="")
+            direction = pvproperty(name=f"Bd{N}", value=False, record="bo", enum_strings=["In", "Out"], doc="")
 
             @output.putter
             async def output(self, instance, value):
@@ -118,7 +122,18 @@ def dio_subgroup(num):
                 if new_val != old_val:
                     driver = self.parent.parent.driver
                     return await driver.write_digital_output(value=new_val, dio_num=N)
-        
+
+            @direction.putter
+            async def direction(self, instance, value):
+                """Write the new digital output direction to the labjack."""
+                # Convert from enum strings to 1's and 0's
+                new_dir = self.enum_directions.get(value, value)
+                old_dir = self.enum_directions.get(instance.value, instance.value)
+                # Send the new value to the device driver
+                if new_dir != old_dir:
+                    driver = self.parent.parent.driver
+                    return await driver.write_digital_direction(dio_num=N, direction=new_dir)
+                
         subgroups[f"dio{N}"] = SubGroup(DIOGroup, prefix="")
     # Create the PVGroup subclass with all the analog inputs
     return type("DigitalIOs", (PVGroup,), subgroups)
