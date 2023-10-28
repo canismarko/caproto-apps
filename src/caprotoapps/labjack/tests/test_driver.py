@@ -32,16 +32,16 @@ async def test_handle():
     assert api.openS.called
     api.openS.assert_called_with("ANY", "ANY", identifier)
     assert driver.handle == 2
-    
+
 
 @pytest.mark.asyncio
 async def test_device_info(driver):
     await driver.connect()
     # Set some fake device info
     driver.api.getHandleInfo.return_value = (
-        7, # T7
-        3, # Ethernet
-        8038574, # Serial number
+        7,  # T7
+        3,  # Ethernet
+        8038574,  # Serial number
         -1539930247,  # IP address
         502,  # Port
         1040,  # Max bytes per packet
@@ -64,50 +64,50 @@ async def test_read_registers(driver):
     assert await driver.read_registers(["AIN0"]) == {
         "AIN0": 0.0,
     }
-    
+
 
 @pytest.mark.asyncio
 async def test_read_inputs(driver):
     driver.api.eReadNames.return_value = [
-        8388607, # DIO_STATE
-        0, # DIO_DIRECTION
-        0.7542197081184724, # AIN0
-        0.5278198329636620, # AIN1
-        0.9013162824853298, # AIN2
-        0.9585645891744154, # AIN3
-        0.0877954589716192, # AIN4
-        0.6531741744255257, # AIN5
-        0.1692810190784566, # AIN6
-        0.9081275311814707, # AIN7
-        0.2128145149923829, # AIN8
-        0.2869844556845337, # AIN9
-        0.5396007779162098, # AIN10
-        0.9378320987673755, # AIN11
-        0.3076448430555906, # AIN12
-        0.6858320718644135, # AIN13
-        0.5475323777280595, # AIN14
-        0.0662560636422623, # AIN15
+        8388607,  # DIO_STATE
+        0,  # DIO_DIRECTION
+        0.7542197081184724,  # AIN0
+        0.5278198329636620,  # AIN1
+        0.9013162824853298,  # AIN2
+        0.9585645891744154,  # AIN3
+        0.0877954589716192,  # AIN4
+        0.6531741744255257,  # AIN5
+        0.1692810190784566,  # AIN6
+        0.9081275311814707,  # AIN7
+        0.2128145149923829,  # AIN8
+        0.2869844556845337,  # AIN9
+        0.5396007779162098,  # AIN10
+        0.9378320987673755,  # AIN11
+        0.3076448430555906,  # AIN12
+        0.6858320718644135,  # AIN13
+        0.5475323777280595,  # AIN14
+        0.0662560636422623,  # AIN15
     ]
-    
+
     assert await driver.read_inputs() == {
         "DIO_STATE": 0b11111111111111111111111,
         "DIO_DIRECTION": 0b0,
-        "AIN0": 0.7542197081184724, # AIN0
-        "AIN1": 0.5278198329636620, # AIN1
-        "AIN2": 0.9013162824853298, # AIN2
-        "AIN3": 0.9585645891744154, # AIN3
-        "AIN4": 0.0877954589716192, # AIN4
-        "AIN5": 0.6531741744255257, # AIN5
-        "AIN6": 0.1692810190784566, # AIN6
-        "AIN7": 0.9081275311814707, # AIN7
-        "AIN8": 0.2128145149923829, # AIN8
-        "AIN9": 0.2869844556845337, # AIN9
-        "AIN10": 0.5396007779162098, # AIN10
-        "AIN11": 0.9378320987673755, # AIN11
-        "AIN12": 0.3076448430555906, # AIN12
-        "AIN13": 0.6858320718644135, # AIN13
-        "AIN14": 0.5475323777280595, # AIN14
-        "AIN15": 0.0662560636422623, # AIN15
+        "AIN0": 0.7542197081184724,  # AIN0
+        "AIN1": 0.5278198329636620,  # AIN1
+        "AIN2": 0.9013162824853298,  # AIN2
+        "AIN3": 0.9585645891744154,  # AIN3
+        "AIN4": 0.0877954589716192,  # AIN4
+        "AIN5": 0.6531741744255257,  # AIN5
+        "AIN6": 0.1692810190784566,  # AIN6
+        "AIN7": 0.9081275311814707,  # AIN7
+        "AIN8": 0.2128145149923829,  # AIN8
+        "AIN9": 0.2869844556845337,  # AIN9
+        "AIN10": 0.5396007779162098,  # AIN10
+        "AIN11": 0.9378320987673755,  # AIN11
+        "AIN12": 0.3076448430555906,  # AIN12
+        "AIN13": 0.6858320718644135,  # AIN13
+        "AIN14": 0.5475323777280595,  # AIN14
+        "AIN15": 0.0662560636422623,  # AIN15
     }
 
 
@@ -143,7 +143,7 @@ async def test_write_digital_direction_input(driver):
     assert driver.api.eWriteName.called
     handle = 2
     driver.api.eWriteName.assert_called_with(handle, "DIO_DIRECTION", 0b111111101)
-    
+
 
 @pytest.mark.asyncio
 async def test_write_digital_direction_output(driver):
@@ -156,4 +156,3 @@ async def test_write_digital_direction_output(driver):
     assert driver.api.eWriteName.called
     handle = 2
     driver.api.eWriteName.assert_called_with(handle, "DIO_DIRECTION", 0b100000001000)
-    

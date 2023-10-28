@@ -2,4 +2,3 @@
 
 from .ioc import LabJackT4
 from .driver import LabJackDriver, LabJackDisconnected
-

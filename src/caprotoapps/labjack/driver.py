@@ -15,21 +15,23 @@ DEVICE_TYPES = {
 
 class LabJackDisconnected(IOError):
     """The device is not connected."""
+
     pass
 
 
-class LabJackDriver():
+class LabJackDriver:
     """A driver supporting a labjack IOC.
 
     A wrapper around the relevant backend library, by default
     Labjack's ljm library.
 
     """
+
     _handle = None
     identifier: str
     num_ai: int
-    
-    def __init__(self, identifier: str, num_ai:int = 16, *, api=ljm):
+
+    def __init__(self, identifier: str, num_ai: int = 16, *, api=ljm):
         """Parameters
         ==========
         identifier
@@ -54,7 +56,9 @@ class LabJackDriver():
     async def connect(self):
         """Connect the driver to the actual labjack device."""
         loop = asyncio.get_running_loop()
-        self._handle = await loop.run_in_executor(None, self.api.openS, "ANY", "ANY", self.identifier)
+        self._handle = await loop.run_in_executor(
+            None, self.api.openS, "ANY", "ANY", self.identifier
+        )
         print(self._handle)
 
     @property
@@ -66,7 +70,7 @@ class LabJackDriver():
 
         This is only meant for info that will not change while the
         device is connected, like device type and serial number.
-       
+
         Returns
         =======
         dict
@@ -75,24 +79,29 @@ class LabJackDriver():
         """
         loop = asyncio.get_running_loop()
         # Get handle info (model number and connection details
-        handle_info = await loop.run_in_executor(None, self.api.getHandleInfo, self.handle)
+        handle_info = await loop.run_in_executor(
+            None, self.api.getHandleInfo, self.handle
+        )
         device_type, conn_type, serial, ip, port, packet_size = handle_info
         # Get the firmware version
-        firmware = await loop.run_in_executor(None, self.api.eReadName, "FIRMWARE_VERSION")
+        firmware = await loop.run_in_executor(
+            None, self.api.eReadName, "FIRMWARE_VERSION"
+        )
         # Build the device info dictionary
         info = {
             "driver_version": DRIVER_VERSION,
             "model_name": DEVICE_TYPES[device_type],
             "serial_number": str(serial),
             "firmware_version": str(firmware),
-            
         }
         return info
 
     async def read_registers(self, names):
         """Read the requested register names from the device."""
         loop = asyncio.get_running_loop()
-        values = await loop.run_in_executor(None, self.api.eReadNames, len(names), names)
+        values = await loop.run_in_executor(
+            None, self.api.eReadNames, len(names), names
+        )
         result = {name: val for name, val in zip(names, values)}
         return result
 
@@ -101,11 +110,13 @@ class LabJackDriver():
         loop = asyncio.get_running_loop()
         value = await loop.run_in_executor(None, self.api.eReadName, name)
         return value
-    
+
     async def write_register(self, name, value):
         """Write a value to the given register."""
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.api.eWriteName, self.handle, name, value)
+        return await loop.run_in_executor(
+            None, self.api.eWriteName, self.handle, name, value
+        )
 
     async def read_inputs(self):
         registers = ["DIO_STATE", "DIO_DIRECTION"]
@@ -118,7 +129,7 @@ class LabJackDriver():
         To set DIO3 to HIGH, use
 
         .. code:: python
-            
+
             await driver.write_digital_output(dio_num=3, value=1)
 
         """
@@ -131,13 +142,13 @@ class LabJackDriver():
         To set DAC1 to 2.2, use
 
         .. code:: python
-            
+
             await driver.write_analog_output(ao_num=1, value=2.2)
 
         """
         name = f"DAC{ao_num}"
         await self.write_register(name, value)
-        
+
     async def write_digital_direction(self, dio_num: int, direction: int):
         """Set the given digital I/O pin to be either input or output.
 
@@ -150,8 +161,8 @@ class LabJackDriver():
         dir_ = await self.read_register(register)
         # Determine the new direction by bitwise manipulation
         if direction == 0:
-            dir_ &= ~(1<<dio_num)
+            dir_ &= ~(1 << dio_num)
         elif direction == 1:
-            dir_ |= (1<<dio_num)
+            dir_ |= 1 << dio_num
         # Send the new directions to the device
         return await self.write_register(register, dir_)
