@@ -1,7 +1,10 @@
 from unittest import mock
+import asyncio
+
 import pytest
 
 from caprotoapps.labjack import LabJackT4, LabJackDriver, LabJackDisconnected
+from caproto.asyncio.server import AsyncioAsyncLayer
 
 
 @pytest.fixture
@@ -64,8 +67,9 @@ async def test_read_inputs(ioc):
     ]
     # Ask the IOC to update its inputs
     await ioc.read_inputs()
-    # Check that the inputs were updated
-    assert ioc.pvdb["test_ioc:Ai0"].value == 0.7542197081184724
+    # Check that the inputs were cached, not updated
+    assert ioc.pvdb["test_ioc:Ai0"].value != 0.7542197081184724
+    ioc._ai_cache["AIN0"] == 0.7542197081184724
     # Check that the digital inputs were updated
     assert ioc.pvdb["test_ioc:Bi0"].value == "Low"
     assert ioc.pvdb["test_ioc:Bi1"].value == "High"
@@ -91,6 +95,21 @@ async def test_read_inputs(ioc):
     assert ioc.pvdb["test_ioc:EIOIn"].value == 0b11010001
     # CIO0:7 == DIO16:19
     assert ioc.pvdb["test_ioc:CIOIn"].value == 0b0100
+
+
+@pytest.mark.asyncio
+async def test_scan_analog_input(ioc):
+    """Check that the analog inputs update from cached values when scanned."""
+    ai = ioc.analog_inputs.ai0
+    pv = ioc.pvdb["test_ioc:Ai0"]
+    # Pretend we've already cached some values
+    ioc._ai_cache = {
+        "AIN0": 1.334,
+    }
+    await ai.update_value(instance=pv)
+    # Check that the PV got updated
+    assert pv.value == 1.334
+    
 
 
 @pytest.mark.asyncio

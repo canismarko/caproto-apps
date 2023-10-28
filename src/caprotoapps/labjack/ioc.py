@@ -54,6 +54,8 @@ def ai_subgroup(num):
     for N in range(num):
 
         class AiGroup(PVGroup):
+            ai_num: int = N
+            
             value = pvproperty(
                 name=f"Ai{N}",
                 record="ai",
@@ -90,6 +92,18 @@ def ai_subgroup(num):
                 record="mbbo",
                 doc="Selects the input resolution for this analog input channel. High values of resolution result in lower noise and longer ADC conversion time.\n\nResolution 0 is the default resolution for that model.\n\nThe T4 supports resolutions 1-5.\n\nThe T7 supports resolutions 1-8.\n\nThe T7-PRO supports resolutions 1-12. 1-8 use the 16-bit ADC and 9-12 use the 24-bit ADC\n\nThe T8 supports resolutions 1-16. However, these are automatically selected by the Range, and this record has no effect?",
             )
+
+            @value.scan(period=0.1, use_scan_field=True)
+            async def value(self, instance, asynclib):
+                await self.parent.update_value(instance)
+
+            async def update_value(self, instance):
+                """Set the value PV from the cached value of the parent IOC."""
+                # Get the cached value
+                cached_val = self.parent.parent._ai_cache[f"AIN{self.ai_num}"]
+                # Set the PV value
+                if cached_val != instance.value:
+                    await instance.write(cached_val)
 
         subgroups[f"ai{N}"] = SubGroup(AiGroup, prefix="")
     # Create the PVGroup subclass with all the analog inputs
@@ -642,10 +656,10 @@ class LabJackBase(PVGroup):
         """
         inputs = await self.driver.read_inputs()
         # Set the analog inputs
-        ai_vals = {k: v for k, v in inputs.items() if k[:3] == "AIN"}
-        for key, val in ai_vals.items():
-            pv = self.analog_inputs.groups[f"ai{key[3:]}"].value
-            await pv.write(val)
+        self._ai_cache = {k: v for k, v in inputs.items() if k[:3] == "AIN"}
+        # for key, val in ai_vals.items():
+        #     pv = self.analog_inputs.groups[f"ai{key[3:]}"].value
+        #     await pv.write(val)
         # Set individual digital inputs
         dio_word = inputs["DIO_STATE"]
         mask = 0b1  # select which digital IO we're reading

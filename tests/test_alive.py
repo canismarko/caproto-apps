@@ -302,8 +302,6 @@ async def test_changing_env_variables(test_ioc):
     alive_group = test_ioc.alive
     await alive_group.ev1.write("ENGINEER")
     await alive_group.rrsts.write("Idle")
-    # from caproto.asyncio.server import AsyncioAsyncLayer
-    # print(alive_group.rrsts.scan)
     await alive_group.check_env(alive_group.rrsts.scan, None)
     # Check that queued was set
     assert alive_group.rrsts.value == "Queued"
