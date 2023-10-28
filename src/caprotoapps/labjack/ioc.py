@@ -7,7 +7,7 @@ Example usage:
 .. code-block:: python
 
     class BeamlineIOC(PVGroup):
-        labjack_0 = SubGroup(LabJackGroup, prefix="LabJack_T4_0:")
+        labjack_0 = SubGroup(LabJackT4, prefix="LabJack_T4_0:")
 
 """
 
