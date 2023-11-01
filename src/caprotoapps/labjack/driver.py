@@ -121,7 +121,11 @@ class LabJackDriver:
     async def read_inputs(self):
         registers = ["DIO_STATE", "DIO_DIRECTION"]
         registers.extend([f"AIN{N}" for N in range(self.num_ai)])
-        return await self.read_registers(registers)
+        values = await self.read_registers(registers)
+        # Do some type conversion since everything is a float in LJM
+        for key in ["DIO_STATE", "DIO_DIRECTION"]:
+            values[key] = int(values[key])
+        return values
 
     async def write_digital_output(self, dio_num, value):
         """Write a new *value* to a digital output register *dio_num*.

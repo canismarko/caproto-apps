@@ -13,6 +13,7 @@ def driver():
     # Mock device information
     identifier = "255idlabjack00.xray.aps.anl.gov"
     driver = LabJackDriver(identifier, api=api)
+    driver._handle = 1
     return driver
 
 
@@ -69,8 +70,8 @@ async def test_read_registers(driver):
 @pytest.mark.asyncio
 async def test_read_inputs(driver):
     driver.api.eReadNames.return_value = [
-        8388607,  # DIO_STATE
-        0,  # DIO_DIRECTION
+        float(8388607),  # DIO_STATE
+        float(0),  # DIO_DIRECTION
         0.7542197081184724,  # AIN0
         0.5278198329636620,  # AIN1
         0.9013162824853298,  # AIN2
@@ -88,8 +89,8 @@ async def test_read_inputs(driver):
         0.5475323777280595,  # AIN14
         0.0662560636422623,  # AIN15
     ]
-
-    assert await driver.read_inputs() == {
+    result = await driver.read_inputs()
+    assert result == {
         "DIO_STATE": 0b11111111111111111111111,
         "DIO_DIRECTION": 0b0,
         "AIN0": 0.7542197081184724,  # AIN0
@@ -109,6 +110,10 @@ async def test_read_inputs(driver):
         "AIN14": 0.5475323777280595,  # AIN14
         "AIN15": 0.0662560636422623,  # AIN15
     }
+    # Check type conversion
+    assert type(result["DIO_STATE"]) is int
+    assert type(result["DIO_DIRECTION"]) is int
+    assert type(result["AIN0"]) is float
 
 
 @pytest.mark.asyncio

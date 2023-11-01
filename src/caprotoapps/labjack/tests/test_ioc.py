@@ -45,9 +45,10 @@ def test_pvs(ioc):
 async def test_read_inputs(ioc):
     # Set fake data
     ioc.driver.api = mock.MagicMock()
+    await ioc.driver.connect()
     ioc.driver.api.eReadNames.return_value = [
-        0b01001101000111011010,  # DIO_STATE
-        0,  # DIO_DIRECTION
+        float(0b01001101000111011010),  # DIO_STATE
+        0.0,  # DIO_DIRECTION
         0.7542197081184724,  # AIN0
         0.5278198329636620,  # AIN1
         0.9013162824853298,  # AIN2
