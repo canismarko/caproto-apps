@@ -74,6 +74,66 @@ can be added** (or replaced) by subclassing the AliveGroup:
         evd1 = envvar_default_property(1, "SCIENTIST")
         # Add a new variable, "STATUS"
         evd6 = envvar_default_property(1, "STATUS")
+
+LabJack
+-------
+
+There are a set of ``PVGroup`` objects for the T-series data
+acquisition devices from the LabJack company. They are designed to
+mimic the `LabJack EPICS module
+<https://epics-modules.github.io/LabJack/>`_, and operate in a similar
+manner.
+
+.. note::
+
+   Caproto has labjack-ljm as a dependency, which supports LabJack
+   T-series devices. **However, labjack-ljm requires that LJM be
+   installed** separately from the python support. Without this
+   library installed, the LabJack IOC will not function. See the `LJM
+   user's guide
+   <https://labjack.com/pages/support?doc=/software-driver/ljm-users-guide/>`_
+   for more information.
+
+There is a group for each supported device, which is currently:
+
+- LabJackT4
+
+though there are plans to support more in the future.
+
+To add support for a LabJack device, include the following in an IOC:
+
+.. code:: python
+
+    from caprotoapps import LabJackT4
+    
+    class MyIOC(PVGroup):
+        t4_1 = SubGroup(LabJackT4, prefix="T4_1:", identifier="labjack01")
+	t4_2 = SubGroup(LabJackT4, prefix="T4_2:", identifier="labjack02")
+	t4_sim = SubGroup(LabJackT4, prefix="T4_3:", identifier="-2")
+
+    if __name__ == "__main__":
+        # Start your IOC as usual
+        ...
+
+For a complete example, see ``examples/labjack_ioc.py``.
+
+*identifier* can be any `valid LJM identifier
+<https://labjack.com/pages/support?doc=/software-driver/ljm-users-guide/identifier-parameter/>`_
+to distinguish a device:
+
+- The hostname of a network-connected device (see note)
+- The IP address of a network-connected device
+- The USB port of a USB-connected device
+- The serial number of a connected device
+- The name of a connected device
+- "-2" to use the simulated device
+- "ANY" to use the first device found (not recommended)
+
+.. note:: 
+   
+   Hostnames are not supported by LJM, so caprotoapps will first try to
+   resolve the identifier as a hostname, and if that fails will use the
+   identifier as provided.
     
 Manager
 -------
