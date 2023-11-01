@@ -100,7 +100,7 @@ class LabJackDriver:
         """Read the requested register names from the device."""
         loop = asyncio.get_running_loop()
         values = await loop.run_in_executor(
-            None, self.api.eReadNames, len(names), names
+            None, self.api.eReadNames, self.handle, len(names), names
         )
         result = {name: val for name, val in zip(names, values)}
         return result
@@ -108,7 +108,7 @@ class LabJackDriver:
     async def read_register(self, name):
         """Read the single register from the device by name."""
         loop = asyncio.get_running_loop()
-        value = await loop.run_in_executor(None, self.api.eReadName, name)
+        value = await loop.run_in_executor(None, self.api.eReadName, self.handle, name)
         return value
 
     async def write_register(self, name, value):

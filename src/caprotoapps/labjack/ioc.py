@@ -95,12 +95,15 @@ def ai_subgroup(num):
 
             @value.scan(period=0.1, use_scan_field=True)
             async def value(self, instance, asynclib):
-                await self.parent.update_value(instance)
+                await self.update_value(instance)
 
             async def update_value(self, instance):
                 """Set the value PV from the cached value of the parent IOC."""
                 # Get the cached value
-                cached_val = self.parent.parent._ai_cache[f"AIN{self.ai_num}"]
+                try:
+                    cached_val = self.parent.parent._ai_cache[f"AIN{self.ai_num}"]
+                except KeyError:
+                    return
                 # Set the PV value
                 if cached_val != instance.value:
                     await instance.write(cached_val)
@@ -226,6 +229,7 @@ class LabJackBase(PVGroup):
     a specific labjack T-series device.
 
     """
+    _ai_cache: dict
 
     # Device functions
     model_name = pvproperty(
@@ -604,7 +608,7 @@ class LabJackBase(PVGroup):
     wavegen_type_0 = pvproperty(
         name="WaveGenType0",
         record="mbbo",
-        doc="Controls the waveform type on channel 0. Values are\n\n- “User-defined”\n\n- “Sin wave”,\n\n- “Square wave”\n\n- “Sawtooth”\n\n- “Pulse”\n\n- “Random”.\n\nNote that if any channel is “User-defined” then all channels must be. Note that all internally predefined waveforms are symmetric about 0 volts. To output unipolar signals the Offset should be set to +-Amplitude/2.",
+        doc="Controls the waveform type on channel 0. Values are\n\n- “User-defined”\n- “Sin wave”,\n- “Square wave”\n- “Sawtooth”\n- “Pulse”\n- “Random”.\n\nNote that if any channel is “User-defined” then all channels must be. Note that all internally predefined waveforms are symmetric about 0 volts. To output unipolar signals the Offset should be set to +-Amplitude/2.",
     )
     wavegen_type_1 = pvproperty(
         name="WaveGenType1",
@@ -644,6 +648,7 @@ class LabJackBase(PVGroup):
 
     def __init__(self, *args, identifier, **kwargs):
         super().__init__(*args, **kwargs)
+        self._ai_cache = {}
         # Determine how many I/O channels this device has
         num_ai = len(self.analog_inputs.groups)
         # Create a driver to do the communication
@@ -681,6 +686,33 @@ class LabJackBase(PVGroup):
         cio_word = 0b11110000000000000000 & dio_word
         cio_word >>= 16
         await self.cio_word.write(cio_word)
+
+    @poll_time_ms.startup
+    async def poll_time_ms(self, instance, async_lib):
+        """Startup for the labjack device.
+
+        Tasks:
+
+        1. Connect to the labjack device
+        2. Read basic device infomation
+        3. Start polling loop
+
+        Will load basic device information PVs (e.g. firmware
+        version), and then start a polling loop to retrieve digital
+        and analog I/O states. The analog inputs will not necessarily
+        update at this rate, but will just be cached for updating when
+        the AI polling interval elapses.
+
+        """
+        # Connect the device
+        await self.driver.connect()
+        # Load device info
+        # Start polling loop
+        while True:
+            sleep_time = instance.value
+            await self.read_inputs()
+            async_lib.sleep(sleep_time / 1000)
+            print("Tick")
 
 
 class LabJackT4(LabJackBase):
