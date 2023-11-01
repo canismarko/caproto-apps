@@ -42,6 +42,7 @@ from caproto.server import (
     SubGroup,
     scan_wrapper,
 )
+import numpy as np
 
 from .driver import LabJackDriver
 
@@ -288,7 +289,7 @@ class LabJackBase(PVGroup):
     poll_time_ms = pvproperty(
         name="PollTimeMS",
         record="ai",
-        doc="The actual number of milliseconds to execute the poll cycle, including the sleep.",
+        doc="The actual number of milliseconds to execute the poll cycle, including the sleep. Averaged over the last 10 reads.",
     )
     ai_all_settling_us = pvproperty(
         name="AiAllSettlingUS",
@@ -653,17 +654,44 @@ class LabJackBase(PVGroup):
     def __init__(self, *args, identifier, **kwargs):
         super().__init__(*args, **kwargs)
         self._ai_cache = {}
+        self._poll_times = np.asarray([], dtype=float)
         # Determine how many I/O channels this device has
         num_ai = len(self.analog_inputs.groups)
         # Create a driver to do the communication
         self.driver = LabJackDriver(identifier=identifier, num_ai=num_ai)
 
+    async def update_poll_time(self, new_timestamp: float = None):
+        """Update PV *poll_time_ms* with an average of the most recent poll
+        time intervals.
+
+        If *new_timestamp* is provided, it will be added to the list,
+        and only the most recent 10 poll time intervals will be kept.
+
+        Parameters
+        ==========
+        new_timestamp
+          A new timestamp from ``time.monotonic()`` or equivalent.
+
+        """
+        # Save the new timestamp
+        if new_timestamp is not None:
+            self._poll_times = np.append(self._poll_times[-10:], [new_timestamp])
+        # Update the poll_time_ms PV
+        intervals = np.diff(self._poll_times)
+        if len(intervals) > 0:
+            poll_time_s = np.mean(intervals)
+            poll_time_ms = poll_time_s * 1000
+            await self.poll_time_ms.write(poll_time_ms)
+
     async def read_inputs(self):
         """Read the analog/digital inputs from the device, and write the
         associated PVs.
 
+        Also updates the PV *poll_time_ms* with actual polling times.
+
         """
         inputs = await self.driver.read_inputs()
+        await self.update_poll_time(time.monotonic())
         # Set the analog inputs
         self._ai_cache = {k: v for k, v in inputs.items() if k[:3] == "AIN"}
         # Set individual digital inputs
@@ -722,10 +750,9 @@ class LabJackBase(PVGroup):
         await self.load_device_info()
         # Start polling loop
         while True:
-            sleep_time = instance.value
+            sleep_time_ms = instance.value
             await self.read_inputs()
-            async_lib.sleep(sleep_time / 1000)
-            print("Tick")
+            async_lib.sleep(sleep_time_ms / 1000)
 
 
 class LabJackT4(LabJackBase):

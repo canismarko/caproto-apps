@@ -1,7 +1,9 @@
 from unittest import mock
 import asyncio
+import datetime as dt
 
 import pytest
+from time_machine import travel
 from labjack import ljm
 
 from caprotoapps.labjack import LabJackT4, LabJackDriver, LabJackDisconnected
@@ -119,6 +121,49 @@ async def test_read_inputs(ioc):
 
 
 @pytest.mark.asyncio
+async def test_poll_time(ioc):
+    await ioc.driver.connect()
+    # Set an initial time
+    # d0 = dt.datetime(2023, 11, 1, 10, 55, 11, 589330)
+    t0 = 1698854768.6413221
+    await ioc.update_poll_time(t0)
+    traveller = travel(t0, tick=False)
+    fake_time = traveller.start()
+    
+    # Set fake data
+    def read_names(*args, **kwargs):
+        """Mocked read names that takes ~50 ms."""
+        # Pretend it takes 53.3 milliseconds to read the thing
+        fake_time.shift(0.0513)
+        return [
+            float(0b01001101000111011010),  # DIO_STATE
+            0.0,  # DIO_DIRECTION
+            0.7542197081184724,  # AIN0
+        ]
+    
+    ioc.driver.api.eReadNames.side_effect = read_names
+    # Ask the IOC to update its inputs
+    await ioc.read_inputs()
+    # Check that the poll time was updated
+    assert ioc.poll_time_ms.value == pytest.approx(51.3)
+
+
+@pytest.mark.asyncio
+async def test_update_poll_time(ioc):
+    tn = 1698854768.6413221
+    # Pretend we've measured 13 read events
+    times = [0.75565086, 0.19431558, 0.54190896, 0.35342251, 0.25425838,
+             0.13587837, 0.12274659, 0.62698737, 0.88789073, 0.26674585,
+             0.43186444, 0.46955297]
+    await ioc.update_poll_time(tn)
+    for t in times:
+        tn += t
+        await ioc.update_poll_time(tn)
+    # Check that the poll time is the average of the last time read events
+    poll_time_s = sum(times[2:]) / 10
+    assert ioc.poll_time_ms.value == pytest.approx(poll_time_s * 1000)
+
+@pytest.mark.asyncio
 async def test_scan_analog_input(ioc):
     """Check that the analog inputs update from cached values when scanned."""
     ai = ioc.analog_inputs.ai0
@@ -131,7 +176,6 @@ async def test_scan_analog_input(ioc):
     # Check that the PV got updated
     assert pv.value == 1.334
     
-
 
 @pytest.mark.asyncio
 async def test_digital_outputs(ioc):
