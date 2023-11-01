@@ -253,6 +253,8 @@ class LabJackBase(PVGroup):
         name="SerialNumber",
         record="stringin",
         read_only=True,
+        value="",
+        dtype=ChannelType.STRING,
         doc="Device serial number.",
     )
     device_temperature = pvproperty(
@@ -265,6 +267,8 @@ class LabJackBase(PVGroup):
         name="LJMVersion",
         record="stringin",
         read_only=True,
+        value="",
+        dtype=ChannelType.STRING,
         doc="Version of the LabJack LJM library.",
     )
     driver_version = pvproperty(
@@ -277,7 +281,10 @@ class LabJackBase(PVGroup):
     last_error_message = pvproperty(
         name="LastErrorMessage",
         record="waveform",
+        # record="stringin",
         read_only=True,
+        value="",
+        dtype=ChannelType.STRING,
         doc="The last error message from the driver. This includes a timestamp.",
     )
     poll_sleep_ms = pvproperty(
@@ -289,6 +296,7 @@ class LabJackBase(PVGroup):
     poll_time_ms = pvproperty(
         name="PollTimeMS",
         record="ai",
+        dtype=ChannelType.FLOAT,
         doc="The actual number of milliseconds to execute the poll cycle, including the sleep. Averaged over the last 10 reads.",
     )
     ai_all_settling_us = pvproperty(
@@ -727,8 +735,8 @@ class LabJackBase(PVGroup):
         await self.last_error_message.write("No error")
         return info
         
-    @poll_time_ms.startup
-    async def poll_time_ms(self, instance, async_lib):
+    @poll_sleep_ms.startup
+    async def poll_sleep_ms(self, instance, async_lib):
         """Startup for the labjack device.
 
         Tasks:
@@ -752,7 +760,7 @@ class LabJackBase(PVGroup):
         while True:
             sleep_time_ms = instance.value
             await self.read_inputs()
-            async_lib.sleep(sleep_time_ms / 1000)
+            await async_lib.sleep(sleep_time_ms / 1000)
 
 
 class LabJackT4(LabJackBase):

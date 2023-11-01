@@ -12,6 +12,7 @@ DRIVER_VERSION = "3.0.0"  # Which EPICS driver version does this mimic?
 
 
 DEVICE_TYPES = {
+    -4: "SIM",
     4: "T4",
     7: "T7",
     8: "T8",
@@ -97,7 +98,7 @@ class LabJackDriver:
         device_type, conn_type, serial, ip, port, packet_size = handle_info
         # Get the firmware version
         firmware = await loop.run_in_executor(
-            None, self.api.eReadName, "FIRMWARE_VERSION"
+            None, self.api.eReadName, self.handle, "FIRMWARE_VERSION"
         )
         # Build the device info dictionary
         info = {
