@@ -1,6 +1,11 @@
 import asyncio
+import socket
+import logging
+import warnings
 
 from labjack import ljm
+
+log = logging.getLogger(__name__)
 
 
 DRIVER_VERSION = "3.0.0"  # Which EPICS driver version does this mimic?
@@ -55,6 +60,13 @@ class LabJackDriver:
 
     async def connect(self):
         """Connect the driver to the actual labjack device."""
+        # Resolve the hostname if possible
+        try:
+            self.identifier = socket.gethostbyname(self.identifier)
+        except socket.gaierror:
+            msg = "Could not resolve labjack hostname '{self.identifier}'"
+            log.info(msg)
+        # Create the device connection
         loop = asyncio.get_running_loop()
         self._handle = await loop.run_in_executor(
             None, self.api.openS, "ANY", "ANY", self.identifier

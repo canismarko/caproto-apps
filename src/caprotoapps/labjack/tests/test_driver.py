@@ -36,6 +36,20 @@ async def test_handle():
 
 
 @pytest.mark.asyncio
+async def test_hostname_resolution(driver):
+    """Does the driver convert hostnames to IP addresses."""
+    # Prepare the driver for testing
+    api = mock.MagicMock()
+    api.openS.return_value = 2
+    identifier = "localhost"
+    driver = LabJackDriver(identifier, api=api)
+    assert driver.identifier == "localhost"
+    # Check that the identifier is converted during connecting
+    await driver.connect()
+    assert driver.identifier == "127.0.0.1"
+
+
+@pytest.mark.asyncio
 async def test_device_info(driver):
     await driver.connect()
     # Set some fake device info
