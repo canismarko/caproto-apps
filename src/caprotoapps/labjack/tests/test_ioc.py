@@ -2,6 +2,7 @@ from unittest import mock
 import asyncio
 
 import pytest
+from labjack import ljm
 
 from caprotoapps.labjack import LabJackT4, LabJackDriver, LabJackDisconnected
 from caproto.asyncio.server import AsyncioAsyncLayer
@@ -10,13 +11,11 @@ from caproto.asyncio.server import AsyncioAsyncLayer
 @pytest.fixture
 def ioc():
     ioc = LabJackT4(prefix="test_ioc:", identifier="labjack.example.com")
+    ioc.driver.api = mock.MagicMock()
     yield ioc
 
 
 def test_pvs(ioc):
-    from pprint import pprint
-
-    pprint(ioc.pvdb)
     # analog inputs
     assert "test_ioc:Ai0" in ioc.pvdb
     assert "test_ioc:AiEnable0" in ioc.pvdb
@@ -42,9 +41,30 @@ def test_pvs(ioc):
 
 
 @pytest.mark.asyncio
+async def test_load_device_info(ioc):
+    # Set up fake replies to api calls
+    ioc.driver.api.getHandleInfo.return_value = [
+        7,  # Model number: "T7"
+        1,  # Connection type: "USB"
+        "579934",  # Serial number
+        "127.0.0.1", # IP address
+        5000,  # Port
+        2048,  # Max bytes per MB (not used)
+    ]
+    ioc.driver.api.eReadName.return_value = "1.0.1"
+    await ioc.driver.connect()
+    # Get the device info and check it
+    await ioc.load_device_info()
+    assert ioc.firmware_version.value == "1.0.1"
+    assert ioc.serial_number.value == "579934"
+    assert ioc.ljm_version.value == ljm.__version__
+    assert ioc.driver_version.value == "3.0.0"
+    assert ioc.last_error_message.value == "No error"
+
+
+@pytest.mark.asyncio
 async def test_read_inputs(ioc):
     # Set fake data
-    ioc.driver.api = mock.MagicMock()
     await ioc.driver.connect()
     ioc.driver.api.eReadNames.return_value = [
         float(0b01001101000111011010),  # DIO_STATE

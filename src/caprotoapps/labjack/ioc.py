@@ -14,6 +14,7 @@ Example usage:
 
 #!/usr/bin/env python3
 from contextlib import contextmanager
+from importlib.metadata import version
 from collections import OrderedDict
 import logging
 import sys
@@ -45,6 +46,14 @@ from caproto.server import (
 from .driver import LabJackDriver
 
 log = logging.getLogger(__name__)
+
+
+model_names = {
+    0: "T4",
+    1: "T7",
+    2: "T7-Pro",
+    3: "T8",
+}
 
 
 def ai_subgroup(num):
@@ -232,13 +241,6 @@ class LabJackBase(PVGroup):
     _ai_cache: dict
 
     # Device functions
-    model_name = pvproperty(
-        name="ModelName",
-        value=0,
-        record="mbbi",
-        read_only=True,
-        doc="Device model name. mbbi values and strings are 0='T4', 1='T7', 2='T7-Pro', 3='T8'",
-    )
     firmware_version = pvproperty(
         name="FirmwareVersion",
         value="",
@@ -267,6 +269,7 @@ class LabJackBase(PVGroup):
     driver_version = pvproperty(
         name="DriverVersion",
         record="stringin",
+        value="3.0.0",
         read_only=True,
         doc="Version of the equivalent EPICS driver.",
     )
@@ -279,6 +282,7 @@ class LabJackBase(PVGroup):
     poll_sleep_ms = pvproperty(
         name="PollSleepMS",
         record="ao",
+        value=50.0,
         doc="The number of milliseconds to sleep at the end of each poll cycle.",
     )
     poll_time_ms = pvproperty(
@@ -662,9 +666,6 @@ class LabJackBase(PVGroup):
         inputs = await self.driver.read_inputs()
         # Set the analog inputs
         self._ai_cache = {k: v for k, v in inputs.items() if k[:3] == "AIN"}
-        # for key, val in ai_vals.items():
-        #     pv = self.analog_inputs.groups[f"ai{key[3:]}"].value
-        #     await pv.write(val)
         # Set individual digital inputs
         dio_word = inputs["DIO_STATE"]
         mask = 0b1  # select which digital IO we're reading
@@ -687,6 +688,17 @@ class LabJackBase(PVGroup):
         cio_word >>= 16
         await self.cio_word.write(cio_word)
 
+    async def load_device_info(self):
+        """Read the device information from the driver and set the corresponding PVs."""
+        # Get device info from the driver
+        info = await self.driver.device_info()
+        # Set PVs with the updated device info
+        await self.firmware_version.write(info['firmware_version'])
+        await self.serial_number.write(info['serial_number'])
+        await self.ljm_version.write(version("labjack.ljm"))
+        await self.last_error_message.write("No error")
+        return info
+        
     @poll_time_ms.startup
     async def poll_time_ms(self, instance, async_lib):
         """Startup for the labjack device.
@@ -707,6 +719,7 @@ class LabJackBase(PVGroup):
         # Connect the device
         await self.driver.connect()
         # Load device info
+        await self.load_device_info()
         # Start polling loop
         while True:
             sleep_time = instance.value
@@ -722,7 +735,15 @@ class LabJackT4(LabJackBase):
 
     - 4 analog inputs
     """
-
+    model_name = pvproperty(
+        name="ModelName",
+        record="mbbi",
+        value="T4",
+        read_only=True,
+        enum_strings=model_names.values(),
+        dtype=ChannelType.ENUM,
+        doc="Device model name. mbbi values and strings are 0='T4', 1='T7', 2='T7-Pro', 3='T8'",
+    )
     # Analog inputs
     analog_inputs = SubGroup(ai_subgroup(4), prefix="")
     digital_ios = SubGroup(dio_subgroup(16), prefix="")
