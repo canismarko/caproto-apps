@@ -23,10 +23,10 @@ classifiers = [
     "Topic :: System :: Hardware",
 ]
 keywords = ["caproto", "controls"]
-dependencies = ["caproto", "fabric"]
+dependencies = ["caproto", "fabric", "labjack-ljm", "numpy"]
 
 [project.optional-dependencies]
-dev = ["black", "pytest", "pytest-asyncio", "build", "twine"]
+dev = ["black", "pytest", "pytest-asyncio", "build", "twine", "time-machine"]
 
 [project.urls]
 Homepage = "https://github.com/canismarko/caproto-apps"
