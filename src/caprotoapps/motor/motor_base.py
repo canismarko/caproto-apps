@@ -193,3 +193,23 @@ class MotorFieldsBase(MotorFields):
         # Convert the readback value
         new_value = self._dial_to_user_value(dial=self.dial_readback_value.value, direction=value)
         await self.user_readback_value.write(new_value)
+
+    @MotorFields.freeze_offset.putter
+    async def freeze_offset(self, instance, value):
+        """The fields VOF and FOF are intended for use in backup/restore
+        operations; any write to them will drive the FOFF field to
+        "Variable" (VOF) or "Frozen" (FOF).
+
+        """
+        await self.offset_freeze_switch.write(1)
+        return 0
+
+    @MotorFields.variable_offset.putter
+    async def variable_offset(self, instance, value):
+        """The fields VOF and FOF are intended for use in backup/restore
+        operations; any write to them will drive the FOFF field to
+        "Variable" (VOF) or "Frozen" (FOF).
+
+        """
+        await self.offset_freeze_switch.write(0)
+        return 0

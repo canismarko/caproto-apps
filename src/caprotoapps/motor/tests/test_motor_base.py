@@ -63,3 +63,20 @@ async def test_dial_value_conversion(test_ioc):
     # Check the dial value is correct
     assert test_ioc.m1.fields["DVAL"].value == 5885.0
     
+
+@pytest.mark.asyncio
+async def test_vof_fof(test_ioc):
+    """The fields VOF and FOF are intended for use in backup/restore
+    operations; any write to them will drive the FOFF field to
+    "Variable" (VOF) or "Frozen" (FOF).
+
+    """
+    pprint(dir(test_ioc.m1.field_inst))
+    assert test_ioc.m1.fields["FOFF"].value == 0
+    # Set it to frozen
+    await test_ioc.m1.fields["FOF"].write(1)
+    assert test_ioc.m1.fields["FOFF"].value == "Frozen"
+    # Set it back to variable
+    await test_ioc.m1.fields["VOF"].write(1)
+    assert test_ioc.m1.fields["FOFF"].value == "Variable"
+    
