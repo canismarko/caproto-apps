@@ -110,7 +110,6 @@ class MotorFieldsBase(MotorFields):
 
     @MotorFields.dial_desired_value.startup
     async def dial_desired_value(self, instance, async_lib):
-        # print(help(self.parent.subscribe))
         self.parent_context = Context()
         self.parent_pv, = await self.parent_context.get_pvs(self.parent.pvname)
         self.parent_subscription = self.parent_pv.subscribe()
@@ -126,7 +125,63 @@ class MotorFieldsBase(MotorFields):
 
         """
         user_setpoint = response.data[0]
-        await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
+        ignore_set = bool(self.ignore_set_field.value)
+        if self.set_use_switch.value in [1, "Set"] and not ignore_set:
+            # Update the calibration offset
+            await self.user_offset.write(self._user_to_offset(user_setpoint))
+            await self.update_user_values()
+        else:
+            # Update the dial set point
+            await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
+
+    async def update_user_values(self, setpoint: float=None, readback:
+                           float=None, high_limit: float=None,
+                           low_limit: float=None, offset: float=None,
+                           direction: float=None):
+        """Update the user values based on dial values.
+
+        The various parameters should be the corresponding dial
+        values. If omitted, the current values will be used. If
+        ``False`` the corresponding user value will not be updated.
+
+        """
+        # Get current values if not provided as arguments
+        setpoint = self.dial_desired_value.value if setpoint is None else setpoint
+        readback = self.dial_readback_value.value if readback is None else setpoint
+        high_limit = self.dial_high_limit.value if high_limit is None else high_limit
+        low_limit = self.dial_low_limit.value if low_limit is None else low_limit
+        offset = self.user_offset.value if offset is None else offset
+        direction = self.user_direction.value if direction is None else direction
+        # Set the various values
+        pvs = [
+            (setpoint, self.parent),
+            (readback, self.user_readback_value),
+            (high_limit, self.user_high_limit),
+            (low_limit, self.user_low_limit),
+        ]
+        for dial_val, user_pv in pvs:
+            user_val = self._dial_to_user_value(dial_val, offset=offset, direction=direction)
+            print(f"{dial_val} -> {user_val}")
+            await user_pv.write(user_val)
+            
+
+    def _user_to_offset(self, user) -> float:
+        """Convert a *user* value (most likely a setpoint) to a calibration
+        offset.
+
+        Uses the current calibration direction and dial setpoint.
+
+        Returns
+        =======
+        float
+          The newly calculated user offset value.
+
+        """
+        dial = self.dial_desired_value.value
+        direction = self.user_direction.value
+        direction = -1 if direction == "Neg" else 1
+        offset = user - dial * direction
+        return offset
 
     def _user_to_dial_value(self, user) -> float:
         """Convert a *user* value (most likely a setpoint) to a dial value.
@@ -161,6 +216,15 @@ class MotorFieldsBase(MotorFields):
         direction = self.user_direction.value if direction is None else direction
         direction = -1 if direction == "Neg" else 1
         return dial * direction + offset
+
+    @MotorFields.user_low_limit.putter
+    async def user_low_limit(self, instance, value):
+        await self.dial_low_limit.write(self._user_to_dial_value(value))
+
+    @MotorFields.user_high_limit.putter
+    async def user_high_limit(self, instance, value):
+        await self.dial_high_limit.write(self._user_to_dial_value(value))
+        
 
     @MotorFields.dial_desired_value.putter
     async def dial_desired_value(self, instance, value):
@@ -213,3 +277,24 @@ class MotorFieldsBase(MotorFields):
         """
         await self.offset_freeze_switch.write(0)
         return 0
+
+    @MotorFields.set_set_mode.putter
+    async def set_set_mode(self, instance, value):
+        """The fields SSET and SUSE are intended for use in backup/restore
+        operations; any write to them will drive the SET field to
+        "Set" (SSET) or "Use" (SUSE).
+
+        """
+        await self.set_use_switch.write(1)
+        return 0
+
+    @MotorFields.set_use_mode.putter
+    async def set_use_mode(self, instance, value):
+        """The fields SSET and SUSE are intended for use in backup/restore
+        operations; any write to them will drive the SET field to
+        "Set" (SSET) or "Use" (SUSE).
+
+        """
+        await self.set_use_switch.write(0)
+        return 0
+    
