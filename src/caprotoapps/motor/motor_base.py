@@ -4,12 +4,12 @@ from caproto.asyncio.client import Context
 
 from pprint import pprint
 
+
 @register_record
 class MotorFieldsBase(MotorFields):
-
     parent_context: Context
-    _record_type = 'motor_base'
-    
+    _record_type = "motor_base"
+
     def __init__(self, *args, axis_num: int = 99, **kwargs):
         self.axis_num = axis_num
         super().__init__(*args, **kwargs)
@@ -103,7 +103,7 @@ class MotorFieldsBase(MotorFields):
     # @MotorFields.jog_accel.startup
     # async def jog_accel(self, instance, async_lib):
     #     """Set the jog accel and velocity to sensible values
-        
+
     #     This is a hack, these should really be autosaved."""
     #     await self.jog_accel.write(0.2)
     #     await self.jog_velocity.write(0.5)
@@ -111,7 +111,7 @@ class MotorFieldsBase(MotorFields):
     @MotorFields.dial_desired_value.startup
     async def dial_desired_value(self, instance, async_lib):
         self.parent_context = Context()
-        self.parent_pv, = await self.parent_context.get_pvs(self.parent.pvname)
+        (self.parent_pv,) = await self.parent_context.get_pvs(self.parent.pvname)
         self.parent_subscription = self.parent_pv.subscribe()
         self.parent_subscription.add_callback(self.handle_new_user_desired_value)
         # Look for new values coming from the parent class
@@ -134,10 +134,15 @@ class MotorFieldsBase(MotorFields):
             # Update the dial set point
             await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
 
-    async def update_user_values(self, setpoint: float=None, readback:
-                           float=None, high_limit: float=None,
-                           low_limit: float=None, offset: float=None,
-                           direction: float=None):
+    async def update_user_values(
+        self,
+        setpoint: float = None,
+        readback: float = None,
+        high_limit: float = None,
+        low_limit: float = None,
+        offset: float = None,
+        direction: float = None,
+    ):
         """Update the user values based on dial values.
 
         The various parameters should be the corresponding dial
@@ -160,10 +165,11 @@ class MotorFieldsBase(MotorFields):
             (low_limit, self.user_low_limit),
         ]
         for dial_val, user_pv in pvs:
-            user_val = self._dial_to_user_value(dial_val, offset=offset, direction=direction)
+            user_val = self._dial_to_user_value(
+                dial_val, offset=offset, direction=direction
+            )
             print(f"{dial_val} -> {user_val}")
             await user_pv.write(user_val)
-            
 
     def _user_to_offset(self, user) -> float:
         """Convert a *user* value (most likely a setpoint) to a calibration
@@ -199,7 +205,7 @@ class MotorFieldsBase(MotorFields):
         direction = -1 if direction == "Neg" else 1
         dial = (user - offset) / direction
         return dial
-        
+
     def _dial_to_user_value(self, dial, offset=None, direction=None) -> float:
         """Convert a *dial* value (e.g. readback or setpoint) to user value.
 
@@ -224,7 +230,6 @@ class MotorFieldsBase(MotorFields):
     @MotorFields.user_high_limit.putter
     async def user_high_limit(self, instance, value):
         await self.dial_high_limit.write(self._user_to_dial_value(value))
-        
 
     @MotorFields.dial_desired_value.putter
     async def dial_desired_value(self, instance, value):
@@ -237,25 +242,33 @@ class MotorFieldsBase(MotorFields):
         """Update the user readback when the dial readback changes."""
         new_value = self._dial_to_user_value(dial=value)
         await self.user_readback_value.write(new_value)
-        
+
     @MotorFields.user_offset.putter
     async def user_offset(self, instance, value):
         """Update the user setpoint and readback when the calibration offset changes."""
         # Convert the setpoint
-        new_value = self._dial_to_user_value(dial=self.dial_desired_value.value, offset=value)
+        new_value = self._dial_to_user_value(
+            dial=self.dial_desired_value.value, offset=value
+        )
         await self.parent.write(new_value)
         # Convert the readback value
-        new_value = self._dial_to_user_value(dial=self.dial_readback_value.value, offset=value)
+        new_value = self._dial_to_user_value(
+            dial=self.dial_readback_value.value, offset=value
+        )
         await self.user_readback_value.write(new_value)
 
     @MotorFields.user_direction.putter
     async def user_direction(self, instance, value):
         """Update the user setpoint and readback when the calibration direction changes."""
         # Convert the setpoint
-        new_value = self._dial_to_user_value(dial=self.dial_desired_value.value, direction=value)
+        new_value = self._dial_to_user_value(
+            dial=self.dial_desired_value.value, direction=value
+        )
         await self.parent.write(new_value)
         # Convert the readback value
-        new_value = self._dial_to_user_value(dial=self.dial_readback_value.value, direction=value)
+        new_value = self._dial_to_user_value(
+            dial=self.dial_readback_value.value, direction=value
+        )
         await self.user_readback_value.write(new_value)
 
     @MotorFields.freeze_offset.putter
@@ -297,4 +310,66 @@ class MotorFieldsBase(MotorFields):
         """
         await self.set_use_switch.write(0)
         return 0
-    
+
+    @MotorFields.display_precision.startup
+    async def display_precision(self, instance, async_lib):
+        """Set the record's precision to match that of the parent PV."""
+        precision = self.parent.precision
+        await instance.write(precision)
+        await self.update_field_precisions(precision)
+
+    @MotorFields.display_precision.putter
+    async def display_precision(self, instance, value):
+        """Set the record's precision to match that of the parent PV."""
+        await self.parent.write_metadata(precision=value)
+        await self.update_field_precisions(value)
+
+    async def update_field_precisions(self, precision: int):
+        """Update the precision value of relevant fields.
+
+        Not sure this is the best way, since we're modifying "private"
+        attrs.
+
+        """
+        fields = [
+            "dial_high_limit",
+            "user_high_limit",
+            "dial_low_limit",
+            "user_low_limit",
+            "dial_desired_value",
+            "user_readback_value",
+            "dial_readback_value",
+            "relative_value",
+            "last_rel_value",
+            "tweak_step_size",
+            "user_offset",
+            "max_velocity",
+            "velocity",
+            "base_velocity",
+            "bl_velocity",
+            "jog_velocity",
+            "seconds_to_velocity",
+            "bl_seconds_to_velocity",
+            "jog_accel",
+            "bl_distance",
+            "move_fraction",
+            "proportional_gain",
+            "integral_gain",
+            "derivative_gain",
+            "motor_step_size",
+            "encoder_step_size",
+            "readback_step_size",
+            "retry_deadband",
+            "readback_settle_time",
+            "difference_dval_drbv",
+            "egu_s_per_revolution",
+            "speed",
+            "bl_speed",
+            "max_speed",
+            "base_speed",
+            "home_velocity",
+        ]
+        for fld in fields:
+            print(fld)
+            attr = getattr(self, fld)
+            await attr.write_metadata(precision=precision)

@@ -10,7 +10,8 @@ PREFIX = "motors:"
 
 class MotorIOC(PVGroup):
     """An IOC showing motor devices."""
-    m1 = pvproperty(name="m1", record=MotorFieldsBase, value=0.0)
+
+    m1 = pvproperty(name="m1", record=MotorFieldsBase, value=0.0, precision=4)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,10 @@ Caproto Apps
 
 Implementations of select EPICS-compatible records in caproto.
 
+- Alive record
+- Labjack
+- Manager
+- Motor
 
 Installation
 ============
@@ -179,6 +183,13 @@ parameters during initialization:
 The status PVs *startable* and *stoppable* are read-only indicators of
 whether the IOC can be controlled via this ManagerGroup. Re-starting
 an IOC requires both *allow_start* and *allow_stop* to be true.
+
+Motor
+-----
+
+Caproto-apps has a base class that can be used for individual
+motors. It contains simple functionality for common motor features,
+similar to the EPICS motor record.
 
 Development
 ===========

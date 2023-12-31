@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import MagicMock
 from pprint import pprint
 
@@ -8,7 +9,7 @@ from caprotoapps import MotorFieldsBase
 
 
 class MockIOC(PVGroup):
-    m1 = pvproperty(name="m1", value=0.0, record="motor_base")
+    m1 = pvproperty(name="m1", value=0.0, record="motor_base", precision=4)
 
 
 @pytest.fixture
@@ -61,7 +62,7 @@ async def test_user_readback_conversion(test_ioc):
     await test_ioc.m1.fields["OFF"].write(12385.0)
     await test_ioc.m1.fields["DIR"].write("Neg")
     assert test_ioc.m1.fields["RBV"].value == 6500.0
-    
+
 
 @pytest.mark.asyncio
 async def test_dial_value_conversion(test_ioc):
@@ -71,10 +72,12 @@ async def test_dial_value_conversion(test_ioc):
     # Set a new user setpoint value
     response = MagicMock()
     response.data = [7500.0]
-    await test_ioc.m1.field_inst.handle_new_user_desired_value(pv=None, response=response)
+    await test_ioc.m1.field_inst.handle_new_user_desired_value(
+        pv=None, response=response
+    )
     # Check the dial value is correct
     assert test_ioc.m1.fields["DVAL"].value == 5885.0
-    
+
 
 @pytest.mark.asyncio
 async def test_vof_fof(test_ioc):
@@ -91,6 +94,7 @@ async def test_vof_fof(test_ioc):
     await test_ioc.m1.fields["VOF"].write(1)
     assert test_ioc.m1.fields["FOFF"].value == "Variable"
 
+
 @pytest.mark.asyncio
 async def test_sset_suse(test_ioc):
     """Simlar to the fields VOF and FOF, tests SSET and SUSE for setting
@@ -104,7 +108,8 @@ async def test_sset_suse(test_ioc):
     # Set it back to variable
     await test_ioc.m1.fields["SUSE"].write(3)
     assert test_ioc.m1.fields["SET"].value == "Use"
-    
+
+
 @pytest.mark.asyncio
 async def test_set_calibration(test_ioc):
     """Test the .SET field in variable offset mode (.FOFF).
@@ -119,17 +124,118 @@ async def test_set_calibration(test_ioc):
     limit fields (HLM and LLM).
 
     """
-    # pprint(dir(test_ioc.m1.field_inst))
-    await test_ioc.m1.fields['IGSET'].write(0)
-    await test_ioc.m1.fields['SET'].write(1)
+    await test_ioc.m1.fields["IGSET"].write(0)
+    await test_ioc.m1.fields["SET"].write(1)
     await test_ioc.m1.fields["DVAL"].write(5885.0)
     await test_ioc.m1.fields["HLM"].write(1000.0)
     await test_ioc.m1.fields["LLM"].write(-1000.0)
     response = MagicMock()
     response.data = [7500.0]
-    await test_ioc.m1.field_inst.handle_new_user_desired_value(pv=None, response=response)    
+    await test_ioc.m1.field_inst.handle_new_user_desired_value(
+        pv=None, response=response
+    )
     # Check that calibration value changed
     assert test_ioc.m1.fields["OFF"].value == 1615.0
     # Check that user limits changed
     assert test_ioc.m1.fields["HLM"].value == 2615.0
     assert test_ioc.m1.fields["LLM"].value == 615.0
+
+
+@pytest.mark.asyncio
+async def test_load_precision(test_ioc):
+    """Does the motor record handle precision properly?"""
+    # pprint([f for f in dir(test_ioc.m1.field_inst) if "prec" in f])
+    await test_ioc.m1.field_inst.display_precision.startup(
+        test_ioc.m1.fields["PREC"], asyncio
+    )
+    # Check that the parent property's precision is used
+    assert test_ioc.m1.fields["PREC"].value == 4
+    # Check that relevant fields also share the precision
+    fields = [
+        "DHLM",
+        "HLM",
+        "DLLM",
+        "LLM",
+        "DVAL",
+        "RBV",
+        "DRBV",
+        "RLV",
+        "TWV",
+        "OFF",
+        "VMAX",
+        "VELO",
+        "BVEL",
+        "JVEL",
+        "VBAS",
+        "ACCL",
+        "BACC",
+        "JAR",
+        "BDST",
+        "FRAC",
+        "PCOF",
+        "ICOF",
+        "DCOF",
+        "MRES",
+        "ERES",
+        "RRES",
+        "RDBD",
+        "DLY",
+        "DIFF",
+        "UREV",
+        "S",
+        "SBAK",
+        "SMAX",
+        "SBAS",
+        "HVEL",
+    ]
+    for fld in fields:
+        assert test_ioc.m1.fields[fld].precision == 4, fld
+
+
+@pytest.mark.asyncio
+async def test_change_precision(test_ioc):
+    """Does the motor record handle precision properly?"""
+    # Change the precision PV
+    await test_ioc.m1.fields["PREC"].write(5)
+    # Check that the parent property's precision was updated
+    assert test_ioc.m1.precision == 5
+    # Check that relevant fields also share the precision
+    fields = [
+        "DHLM",
+        "HLM",
+        "DLLM",
+        "LLM",
+        "DVAL",
+        "RBV",
+        "DRBV",
+        "RLV",
+        "TWV",
+        "OFF",
+        "VMAX",
+        "VELO",
+        "BVEL",
+        "JVEL",
+        "VBAS",
+        "ACCL",
+        "BACC",
+        "JAR",
+        "BDST",
+        "FRAC",
+        "PCOF",
+        "ICOF",
+        "DCOF",
+        "MRES",
+        "ERES",
+        "RRES",
+        "RDBD",
+        "DLY",
+        "DIFF",
+        "UREV",
+        "S",
+        "SBAK",
+        "SMAX",
+        "SBAS",
+        "HVEL",
+    ]
+    for fld in fields:
+        assert test_ioc.m1.fields[fld].precision == 5, fld
