@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from pprint import pprint
 
 import pytest
@@ -19,9 +19,14 @@ def test_ioc():
 
 
 @pytest.mark.asyncio
-async def test_user_value_conversion(test_ioc):
+async def test_dial_to_user_setpoint_conversions(test_ioc):
+    """Set a dial value and confirm that the user value is set
+    properly.
+
+    """
     # Set some known offset
     await test_ioc.m1.fields["DIR"].write("Pos")
+    await test_ioc.m1.fields["MRES"].write(0.5)
     await test_ioc.m1.fields["OFF"].write(1615.0)
     await test_ioc.m1.fields["DVAL"].write(5885.0)
     # Check that calibration value
@@ -65,10 +70,16 @@ async def test_user_readback_conversion(test_ioc):
 
 
 @pytest.mark.asyncio
-async def test_dial_value_conversion(test_ioc):
-    # Set some known offset
+async def test_user_to_raw_value_conversion(test_ioc):
+    """Set the user command value, and make sure that the dial and raw
+    values are updated."""
+    # Create a way to check that the motor handler was called
+    test_ioc.m1.field_inst.do_move = AsyncMock()
+    # Set some known offset and motor parameters
     await test_ioc.m1.fields["DIR"].write("Pos")
     await test_ioc.m1.fields["OFF"].write(1615.0)
+    await test_ioc.m1.fields["MRES"].write(0.5)  # 0.5 EGU / step
+    await test_ioc.m1.fields["VELO"].write(3.5)
     # Set a new user setpoint value
     response = MagicMock()
     response.data = [7500.0]
@@ -77,8 +88,29 @@ async def test_dial_value_conversion(test_ioc):
     )
     # Check the dial value is correct
     assert test_ioc.m1.fields["DVAL"].value == 5885.0
+    assert test_ioc.m1.fields["RVAL"].value == 11770
+    # Check that the handler for actually moving the motor is called
+    assert test_ioc.m1.field_inst.do_move.called
+    test_ioc.m1.field_inst.do_move.assert_called_with(11770.0, speed=7.0)
 
 
+@pytest.mark.asyncio
+async def test_raw_to_dial_value_conversion(test_ioc):
+    """Set the raw command value, and make sure that the dial (and user)
+    values are updated.
+
+    """
+    # Set some known offset and motor parameters
+    await test_ioc.m1.fields["DIR"].write("Pos")
+    await test_ioc.m1.fields["OFF"].write(1615.0)
+    await test_ioc.m1.fields["MRES"].write(0.5)  # 0.5 EGU / step
+    # Set a new raw setpoint value
+    await test_ioc.m1.fields["RVAL"].write(11770.0)
+    # Check the dial/user values are correct
+    assert test_ioc.m1.fields["DVAL"].value == 5885.0
+    assert test_ioc.m1.value == 7500.0
+
+    
 @pytest.mark.asyncio
 async def test_vof_fof(test_ioc):
     """The fields VOF and FOF are intended for use in backup/restore
@@ -126,6 +158,7 @@ async def test_set_calibration(test_ioc):
     """
     await test_ioc.m1.fields["IGSET"].write(0)
     await test_ioc.m1.fields["SET"].write(1)
+    await test_ioc.m1.fields["MRES"].write(0.5)
     await test_ioc.m1.fields["DVAL"].write(5885.0)
     await test_ioc.m1.fields["HLM"].write(1000.0)
     await test_ioc.m1.fields["LLM"].write(-1000.0)

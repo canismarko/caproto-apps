@@ -1,14 +1,70 @@
+from contextlib import contextmanager
+
 from caproto.server.records import MotorFields, register_record
 from caproto.asyncio.client import Context
+import warnings
 
 
 from pprint import pprint
 
 
+class SenderLock():
+    """Prevents recursion when signals have mutually dependent putters.
+
+    For example, in the motor fields there is the dial value, user
+    value and raw value, and setting any one of these should update
+    the other two. However, a naive implementation means that updating
+    dial value then sets the user value, which updates the user value,
+    etc. resulting in infinite recursion.
+
+    Funneling writes through this class means that the sending signal
+    is blocked from future writes, avoiding the recursion:
+
+    .. code-block:: python
+
+        def __init__(self, *args, **kwargs):
+            ...
+            self.sender_lock = SenderLock()
+
+        @MotorFields.dial_desired_value.putter
+        async def dial_desired_value(self, instance, value):
+            ...
+            with self.sender_lock(instance):
+                await self.raw_desired_value.write(value)
+
+        @MotorFields.dial_raw_value.putter
+        async def dial_raw_value(self, instance, value):
+            ...
+            with self.sender_lock(instance):
+                await self.dial_desired_value.write(value)
+
+    """
+    active_senders: set
+    
+    def __init__(self):
+        self.active_senders = set()
+
+    @contextmanager
+    def __call__(self, sender):
+        self.active_senders.add(sender.name)
+        # Temporarily disable the putter
+        old_putter = sender.putter
+        sender.putter = None
+        # Return to the inner calling code
+        try:
+            yield
+        finally:
+            # Restore the previous the putter
+            sender.putter = old_putter
+            self.active_senders.discard(sender.name)
+
 @register_record
 class MotorFieldsBase(MotorFields):
     parent_context: Context
     _record_type = "motor_base"
+
+    # For keeping track of which desired value PVs have been updated
+    sender_lock: SenderLock
 
     def __init__(self, *args, axis_num: int = 99, **kwargs):
         self.axis_num = axis_num
@@ -16,6 +72,7 @@ class MotorFieldsBase(MotorFields):
         self.parent_context = None
         self.parent_pv = None
         self.parent_subscription = None
+        self.sender_lock = SenderLock()
 
     # @property
     # def driver(self):
@@ -54,7 +111,9 @@ class MotorFieldsBase(MotorFields):
     #     await instance.group.done_moving_to_value.write(1)
 
     # def do_move(self, new_pos, vel, acc, relative):
-    #     """A stub that decides what moving this axis means.
+    #
+
+    """A stub that decides what moving this axis means.
 
     #     Intended to be easily overwritten by subclasses
     #     (e.g. RobotJointFields).
@@ -110,11 +169,11 @@ class MotorFieldsBase(MotorFields):
 
     @MotorFields.dial_desired_value.startup
     async def dial_desired_value(self, instance, async_lib):
+        # Look for new values coming from the parent class
         self.parent_context = Context()
         (self.parent_pv,) = await self.parent_context.get_pvs(self.parent.pvname)
         self.parent_subscription = self.parent_pv.subscribe()
         self.parent_subscription.add_callback(self.handle_new_user_desired_value)
-        # Look for new values coming from the parent class
 
     async def handle_new_user_desired_value(self, pv, response):
         """Handle changes to the user setpoint value.
@@ -132,7 +191,8 @@ class MotorFieldsBase(MotorFields):
             await self.update_user_values()
         else:
             # Update the dial set point
-            await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
+            with self.sender_lock(self.parent):
+                await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
 
     async def update_user_values(
         self,
@@ -233,9 +293,21 @@ class MotorFieldsBase(MotorFields):
 
     @MotorFields.dial_desired_value.putter
     async def dial_desired_value(self, instance, value):
-        """Update the user setpoint when the dial setpoint changes."""
-        new_value = self._dial_to_user_value(dial=value)
-        await self.parent.write(new_value)
+        """Update related signals when the dial setpoint changes.
+
+        - user setpoint (parent PV)
+        - raw value (converted to steps)
+
+        """
+        with self.sender_lock(instance):
+            # Update the user desired value
+            new_value = self._dial_to_user_value(dial=value)
+            await self.parent.write(new_value)
+            # Update the raw desired value
+            step_size = self.motor_step_size.value
+            steps = value / step_size
+            await self.raw_desired_value.write(steps)
+
 
     @MotorFields.dial_readback_value.putter
     async def dial_readback_value(self, instance, value):
@@ -243,8 +315,45 @@ class MotorFieldsBase(MotorFields):
         new_value = self._dial_to_user_value(dial=value)
         await self.user_readback_value.write(new_value)
 
+    @MotorFields.raw_desired_value.putter
+    async def raw_desired_value(self, instance, value):
+        """Handler for changing the raw desired value.
+        
+        Updates the dial_desired_value and calls the ``self.do_move``
+        function to actually move the motor.
+
+        """
+        step_size = self.motor_step_size.value
+        # Update the dial value
+        with self.sender_lock(instance):
+            await self.dial_desired_value.write(value * step_size)
+        # Determine motion parameters
+        speed = self.velocity.value / step_size
+        # Call the handler for actually moving the motor
+        await self.do_move(value, speed=speed)
+        # Remove ourselves from the lock set
+
+    async def do_move(self, target, speed):
+        """Perform requested motor moves.
+        
+        Concrete implementations of motor fields should override this
+        method to perform real motor moves.
+
+        Parameters
+        ==========
+        target
+          The target value of the move, for example the raw desired
+          value.
+        speed
+          The speed with which to move the motor, in raw units per
+          second.
+
+        """
+        warnings.warn("``do_move`` not implemented for motor fields. Consider overriding ``do_move``.")
+        
     @MotorFields.user_offset.putter
     async def user_offset(self, instance, value):
+
         """Update the user setpoint and readback when the calibration offset changes."""
         # Convert the setpoint
         new_value = self._dial_to_user_value(
