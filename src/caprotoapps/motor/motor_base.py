@@ -97,37 +97,6 @@ class MotorFieldsBase(MotorFields):
     #     """
     #     self.driver.movel(new_pos, vel=vel, acc=acc, relative=relative)
 
-    # async def tweak_value(self, instance, value, direction):
-    #     """Tweak the motor value. To be used by tweak forward and reverse.
-
-    #     *direction* should be either 1 (forward) or -1 (reverse).
-    #     """
-    #     # Putting 0 does nothing
-    #     if not bool(value):
-    #         return 0
-    #     # Figure out where to move to
-    #     step = direction * instance.group.tweak_step_size.value
-    #     axis_num = self.parent.axis_num
-    #     # Decide how fast to move
-    #     acceleration = instance.group.jog_accel.value
-    #     velocity = instance.group.jog_velocity.value
-    #     # Do the actual moving
-    #     log.info(f"Tweaking axis {axis_num} value by {step}.")
-    #     new_pos = tuple((step if n == axis_num else 0) for n in range(6))
-    #     await self.move_axis(
-    #         instance, new_pos, vel=velocity, acc=acceleration, relative=True
-    #     )
-
-    # @MotorFields.tweak_motor_forward.putter
-    # async def tweak_motor_forward(self, instance, value):
-    #     await self.tweak_value(instance, value, direction=1)
-    #     return 0
-
-    # @MotorFields.tweak_motor_reverse.putter
-    # async def tweak_motor_reverse(self, instance, value):
-    #     await self.tweak_value(instance, value, direction=-1)
-    #     return 0
-
     # @MotorFields.description.startup
     # async def description(self, instance, async_lib):
     #     # Save the async lib for later use
@@ -314,7 +283,8 @@ class MotorFieldsBase(MotorFields):
             new_value = await self.parent.read_motor()
         except AttributeError:
             warnings.warn(f"``read_motor`` not implemented for motor {self.parent.name}.")
-        await self.raw_readback_value.write(new_value)
+        else:
+            await self.raw_readback_value.write(new_value)
 
     @MotorFields.raw_desired_value.putter
     @no_reentry()
@@ -434,8 +404,32 @@ class MotorFieldsBase(MotorFields):
     @MotorFields.display_precision.putter
     async def display_precision(self, instance, value):
         """Set the record's precision to match that of the parent PV."""
-        await self.parent.write_metadata(precision=value)
+        await instance.group.parent.write_metadata(precision=value)
         await self.update_field_precisions(value)
+
+    async def tweak_value(self, instance, value, direction):
+        """Tweak the motor value. To be used by tweak forward and reverse.
+
+        *direction* should be either 1 (forward) or -1 (reverse).
+        """
+        # Putting 0 does nothing
+        if not bool(value):
+            return 0
+        # Figure out where to move to
+        step = direction * instance.group.tweak_step_size.value
+        new_val = instance.group.parent.value + step
+        # Now do the moving
+        await instance.group.parent.write(new_val)
+
+    @MotorFields.tweak_motor_forward.putter
+    async def tweak_motor_forward(self, instance, value):
+        await self.tweak_value(instance, value, direction=1)
+        return 0
+
+    @MotorFields.tweak_motor_reverse.putter
+    async def tweak_motor_reverse(self, instance, value):
+        await self.tweak_value(instance, value, direction=-1)
+        return 0
 
     async def update_field_precisions(self, precision: int):
         """Update the precision value of relevant fields.

@@ -252,6 +252,20 @@ async def test_raw_readback_value_conversion(test_ioc):
 
 
 @pytest.mark.asyncio
+async def test_jog_forward(test_ioc):
+    """Confirm that jogging the motor forward actually moves the motor properly."""
+    test_ioc.m1.do_move = AsyncMock()
+    # set up motion parameters
+    await test_ioc.m1.fields["TWV"].write(1.0)
+    await test_ioc.m1.write(10.0)
+    # Jog the motor forward
+    await test_ioc.m1.fields["TWF"].write(1)
+    # Check that the setpoint fields were written
+    assert test_ioc.m1.fields["TWF"].value == 0
+    assert test_ioc.m1.value == 11.0
+
+
+@pytest.mark.asyncio
 async def test_change_precision(test_ioc):
     """Does the motor record handle precision properly?"""
     # Change the precision PV
