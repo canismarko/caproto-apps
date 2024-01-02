@@ -4,6 +4,7 @@ from pprint import pprint
 
 import pytest
 from caproto.server import pvproperty, PVGroup, SubGroup
+from caproto.asyncio.server import AsyncioAsyncLayer
 
 from caprotoapps import MotorFieldsBase
 
@@ -109,6 +110,14 @@ async def test_raw_to_dial_value_conversion(test_ioc):
     # Check the dial/user values are correct
     assert test_ioc.m1.fields["DVAL"].value == 5885.0
     assert test_ioc.m1.value == 7500.0
+
+
+@pytest.mark.asyncio
+async def test_read_motor(test_ioc):
+    """Check that we can read the raw motor position from a device."""
+    test_ioc.m1.read_motor = AsyncMock(return_value=3.5)
+    await test_ioc.m1.field_inst.read_motor()
+    assert test_ioc.m1.fields["RRBV"].value == 3.5
 
     
 @pytest.mark.asyncio
@@ -223,6 +232,23 @@ async def test_load_precision(test_ioc):
     ]
     for fld in fields:
         assert test_ioc.m1.fields[fld].precision == 4, fld
+
+
+@pytest.mark.asyncio
+async def test_raw_readback_value_conversion(test_ioc):
+    """Confirm that changing the raw readback value also sets the user
+    readback and dial readbacks.
+
+    """
+    # Set some calibration values
+    await test_ioc.m1.fields['MRES'].write(0.5)
+    await test_ioc.m1.fields["DIR"].write("Pos")
+    await test_ioc.m1.fields["OFF"].write(1615)
+    # Set the raw readback value
+    await test_ioc.m1.fields['RRBV'].write(11770.0)
+    # Check that it was converted properly
+    assert test_ioc.m1.fields['DRBV'].value == 5885.0
+    assert test_ioc.m1.fields["RBV"].value == 7500.0
 
 
 @pytest.mark.asyncio

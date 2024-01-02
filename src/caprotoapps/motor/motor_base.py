@@ -286,12 +286,35 @@ class MotorFieldsBase(MotorFields):
         if steps != self.raw_desired_value.value:
             await self.raw_desired_value.write(steps)
 
-
     @MotorFields.dial_readback_value.putter
     async def dial_readback_value(self, instance, value):
         """Update the user readback when the dial readback changes."""
         new_value = self._dial_to_user_value(dial=value)
         await self.user_readback_value.write(new_value)
+
+    @MotorFields.raw_readback_value.putter
+    async def raw_readback_value(self, instance, value):
+        """Propogate the raw readback value to the dial readback."""
+        step_size = self.motor_step_size.value
+        dial_value = value * step_size
+        await self.dial_readback_value.write(dial_value )
+
+    @MotorFields.raw_readback_value.scan(period=0.1)
+    async def raw_readback_value(self, instance, async_lib):
+        """Monitor for changes on the motor's position from the parent PV.
+
+        Looks for a parent object with a ``read_motor`` method.
+
+        """
+        await self.read_motor()
+
+    async def read_motor(self):
+        """Read the motor through the parent PV and update the raw readback value."""
+        try:
+            new_value = await self.parent.read_motor()
+        except AttributeError:
+            warnings.warn(f"``read_motor`` not implemented for motor {self.parent.name}.")
+        await self.raw_readback_value.write(new_value)
 
     @MotorFields.raw_desired_value.putter
     @no_reentry()
