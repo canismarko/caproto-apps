@@ -74,7 +74,7 @@ async def test_user_to_raw_value_conversion(test_ioc):
     """Set the user command value, and make sure that the dial and raw
     values are updated."""
     # Create a way to check that the motor handler was called
-    test_ioc.m1.field_inst.do_move = AsyncMock()
+    test_ioc.m1.do_move = AsyncMock()
     # Set some known offset and motor parameters
     await test_ioc.m1.fields["DIR"].write("Pos")
     await test_ioc.m1.fields["OFF"].write(1615.0)
@@ -90,8 +90,8 @@ async def test_user_to_raw_value_conversion(test_ioc):
     assert test_ioc.m1.fields["DVAL"].value == 5885.0
     assert test_ioc.m1.fields["RVAL"].value == 11770
     # Check that the handler for actually moving the motor is called
-    assert test_ioc.m1.field_inst.do_move.called
-    test_ioc.m1.field_inst.do_move.assert_called_with(11770.0, speed=7.0)
+    assert test_ioc.m1.do_move.called
+    test_ioc.m1.do_move.assert_called_with(11770.0, speed=7.0)
 
 
 @pytest.mark.asyncio
