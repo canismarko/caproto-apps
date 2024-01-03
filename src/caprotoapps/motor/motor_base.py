@@ -3,6 +3,7 @@ import contextvars
 import functools
 
 from caproto.server import pvproperty, PvpropertyDouble
+from caproto._data import SkipWrite
 from caproto.server.records import MotorFields, register_record
 from caproto.asyncio.client import Context
 import warnings
@@ -137,6 +138,10 @@ class MotorFieldsBase(MotorFields):
             await self.update_user_values()
         else:
             # Update the dial set point
+            try:
+                await self.check_limits(user_setpoint, which="user")
+            except SkipWrite:
+                pass
             await self.dial_desired_value.write(self._user_to_dial_value(user_setpoint))
 
     async def update_user_values(
@@ -236,6 +241,28 @@ class MotorFieldsBase(MotorFields):
     async def user_high_limit(self, instance, value):
         await self.dial_high_limit.write(self._user_to_dial_value(value))
 
+    async def check_limits(self, value, which: str):
+        """Verify that the desired value is within limits.
+
+        If not, raise SkipWrite, and set the LVIO PV. Otherwise, clear the LVIO PV.
+
+        Parameters
+        ==========
+        value
+          The value to check.
+        which
+          Either "dial" or "user"
+        """
+        # Check for soft limit violations
+        high_limit = getattr(self, f"{which}_high_limit").value
+        low_limit = getattr(self, f"{which}_low_limit").value
+        within_limits = low_limit <= value <=  high_limit
+        await self.limit_violation.write(not within_limits)
+        if not within_limits:
+            raise SkipWrite
+        return value
+
+
     @MotorFields.dial_desired_value.putter
     @no_reentry()
     async def dial_desired_value(self, instance, value):
@@ -245,6 +272,8 @@ class MotorFieldsBase(MotorFields):
         - raw value (converted to steps)
 
         """
+        # Check limits
+        await self.check_limits(value, which="dial")
         # Update the user desired value
         new_value = self._dial_to_user_value(dial=value)
         if new_value != self.parent.value:

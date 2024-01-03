@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, AsyncMock
 from pprint import pprint
 
 import pytest
+import pytest_asyncio
 from caproto.server import pvproperty, PVGroup, SubGroup
 from caproto.asyncio.server import AsyncioAsyncLayer
 
@@ -13,10 +14,12 @@ class MockIOC(PVGroup):
     m1 = pvproperty(name="m1", value=0.0, record="motor_base", precision=4)
 
 
-@pytest.fixture
-def test_ioc():
+@pytest_asyncio.fixture
+async def test_ioc():
     ioc = MockIOC(prefix="test_ioc:")
-    yield ioc
+    # Set some reasonable limits
+    await ioc.m1.field_inst.user_high_limit.write(20000)
+    return ioc
 
 
 @pytest.mark.asyncio
@@ -169,7 +172,7 @@ async def test_set_calibration(test_ioc):
     await test_ioc.m1.fields["SET"].write(1)
     await test_ioc.m1.fields["MRES"].write(0.5)
     await test_ioc.m1.fields["DVAL"].write(5885.0)
-    await test_ioc.m1.fields["HLM"].write(1000.0)
+    await test_ioc.m1.fields["HLM"].write(10000.0)
     await test_ioc.m1.fields["LLM"].write(-1000.0)
     response = MagicMock()
     response.data = [7500.0]
@@ -179,7 +182,7 @@ async def test_set_calibration(test_ioc):
     # Check that calibration value changed
     assert test_ioc.m1.fields["OFF"].value == 1615.0
     # Check that user limits changed
-    assert test_ioc.m1.fields["HLM"].value == 2615.0
+    assert test_ioc.m1.fields["HLM"].value == 11615.0
     assert test_ioc.m1.fields["LLM"].value == 615.0
 
 
@@ -264,6 +267,55 @@ async def test_jog_forward(test_ioc):
     assert test_ioc.m1.fields["TWF"].value == 0
     assert test_ioc.m1.value == 11.0
 
+
+@pytest.mark.asyncio
+async def test_high_dial_limit(test_ioc):
+    # Set a limit
+    await test_ioc.m1.fields["DHLM"].write(1.5)
+    # Try and move beyond that limit
+    await test_ioc.m1.fields["DVAL"].write(1.6)
+    # Does the limit trigger
+    assert test_ioc.m1.fields["DVAL"].value == 0.0
+    assert test_ioc.m1.fields["LVIO"].value == 1
+
+
+@pytest.mark.asyncio
+async def test_low_dial_limit(test_ioc):
+    # Set a limit
+    await test_ioc.m1.fields["DLLM"].write(-1.3)
+    # Try and move beyond that limit
+    await test_ioc.m1.fields["DVAL"].write(-1.5)
+    # Does the limit trigger
+    assert test_ioc.m1.fields["DVAL"].value == 0.0
+    assert test_ioc.m1.fields["LVIO"].value == 1
+
+
+@pytest.mark.asyncio
+async def test_high_user_limit(test_ioc):
+    # Set a limit
+    await test_ioc.m1.fields["HLM"].write(1.5)
+    # Try and move beyond that limit
+    response = MagicMock()
+    response.data = [1.6]
+    await test_ioc.m1.field_inst.handle_new_user_desired_value(
+        pv=None, response=response
+    )
+    # Does the limit trigger
+    assert test_ioc.m1.fields["LVIO"].value == 1
+
+@pytest.mark.asyncio
+async def test_low_user_limit(test_ioc):
+    # Set a limit
+    await test_ioc.m1.fields["LLM"].write(1.5)
+    # Try and move beyond that limit
+    response = MagicMock()
+    response.data = [1.4]
+    await test_ioc.m1.field_inst.handle_new_user_desired_value(
+        pv=None, response=response
+    )
+    # Does the limit trigger
+    assert test_ioc.m1.fields["LVIO"].value == 1
+    
 
 @pytest.mark.asyncio
 async def test_change_precision(test_ioc):
