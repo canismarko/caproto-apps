@@ -9,8 +9,6 @@ from caproto.asyncio.client import Context
 import warnings
 
 
-from pprint import pprint
-
 
 class no_reentry():
     _states: dict = {}

@@ -191,6 +191,86 @@ Caproto-apps has a base class that can be used for individual
 motors. It contains simple functionality for common motor features,
 similar to the EPICS motor record.
 
+The MotorFieldsBase class contains all the basic functionality for a
+motor record. Support for certain motor types can be added in through
+custom data type classes. This is necessary so that motor-specific
+parameters can be passed in, such as *axis* in the following example:
+
+.. code-block:: python
+
+    from caproto.server import PVGroup, pvproperty, PvpropertyDouble
+    from caprotoapps import MotorFieldsBase
+
+    class CustomMotor(PvpropertyDouble):
+        axis: int
+    
+        def __init__(self, axis: int, *args, **kwargs):
+            self.axis = axis
+            super().__init__(*args, **kwargs)
+        
+        async def do_move(self, value: float, speed: float):
+	    """This function gets executing when the motor should actually move."""
+            print(f"Moving {self.axis=} at {value=} at {speed=} steps/sec.")
+        
+    
+    class MotorIOC(PVGroup):
+        """An IOC showing motor devices."""
+    
+        m1 = pvproperty(name="m1", axis=1, record="motor_base", value=0.0, dtype=CustomMotor, precision=4)
+        m2 = pvproperty(name="m2", axis=2, record="motor_base", value=0.0, dtype=CustomMotor, precision=2)
+ 
+
+**Only some features have been implemented.** Kindly submit an issue
+for missing features that you want to use.
+
+`Calibration`_
+  Fully supported, though not all other fields properly change their
+  behavior in response to the SET field.
+`Command Buttons`_
+  Not implemented
+`Resolution`_
+  MRES is used to calculate steps from the dial value. Remaining
+  fields are not used.
+`Motion`_
+  VELO is used as the speed when actually moving the motor. Remaining
+  fields are not used.
+`Links`_
+  Not used
+`Limits`_
+  Soft limits are enforced, and the limits respond to the SET
+  field. The parent pvproperty's *upper_ctrl_limit* and
+  *lower_ctrl_limit* properties are independent of the record limit
+  fields.
+`Drive`_
+  VAL, DVAL, and RVAL all update one another. If RVAL is changed, the
+  motor will move. RLV and SYNC are not used.
+`Readback`_
+  RBV, DRBV, and RRBV all update in 0.1 sec periods. The remaining
+  fields are unused.
+`Servo`_
+  Not used.
+`Alarm`_
+  Not used.
+`Miscellaneous`_
+  PREC is tied to the parent pvproperty's *precision*
+  metadata. Changing PREC updates the precision of the remaining
+  floating-point fields.
+`Private`_
+  Not used.
+
+.. _Calibration: https://epics-modules.github.io/motor/motorRecord.html#Fields_calib
+.. _Command Buttons: https://epics-modules.github.io/motor/motorRecord.html#Fields_command
+.. _Resolution: https://epics-modules.github.io/motor/motorRecord.html#Fields_res
+.. _Motion: https://epics-modules.github.io/motor/motorRecord.html#Fields_motion
+.. _Links: https://epics-modules.github.io/motor/motorRecord.html#Fields_link
+.. _Limits: https://epics-modules.github.io/motor/motorRecord.html#Fields_limit
+.. _Drive: https://epics-modules.github.io/motor/motorRecord.html#Fields_drive
+.. _Readback: https://epics-modules.github.io/motor/motorRecord.html#Fields_status
+.. _Servo: https://epics-modules.github.io/motor/motorRecord.html#Servo_fields
+.. _Alarm: https://epics-modules.github.io/motor/motorRecord.html#Fields_alarm
+.. _Miscellaneous: https://epics-modules.github.io/motor/motorRecord.html#Fields_misc
+.. _Private: https://epics-modules.github.io/motor/motorRecord.html#Fields_private
+
 Development
 ===========
 
