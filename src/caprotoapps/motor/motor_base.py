@@ -96,13 +96,6 @@ class MotorFieldsBase(MotorFields):
     #     """
     #     self.driver.movel(new_pos, vel=vel, acc=acc, relative=relative)
 
-    # @MotorFields.description.startup
-    # async def description(self, instance, async_lib):
-    #     # Save the async lib for later use
-    #     self.async_lib = async_lib
-    #     # Set the fields to the PV spec properties
-    #     await instance.write(self.parent.__doc__)
-
     # @MotorFields.jog_accel.startup
     # async def jog_accel(self, instance, async_lib):
     #     """Set the jog accel and velocity to sensible values
@@ -110,6 +103,15 @@ class MotorFieldsBase(MotorFields):
     #     This is a hack, these should really be autosaved."""
     #     await self.jog_accel.write(0.2)
     #     await self.jog_velocity.write(0.5)
+
+    @MotorFields.description.startup
+    async def description(self, instance, async_lib):
+        # Save the async lib for later use
+        self.async_lib = async_lib
+        # Set the fields to the PV spec properties
+        doc_string = self.parent.__doc__
+        if doc_string is not None:
+            await instance.write(doc_string)
 
     @MotorFields.dial_desired_value.startup
     async def dial_desired_value(self, instance, async_lib):
@@ -347,10 +349,17 @@ class MotorFieldsBase(MotorFields):
         step_size = self.motor_step_size.value
         speed = self.velocity.value / step_size
         # Call the handler for actually moving the motor
+        await self.done_moving_to_value.write(0)
+        await self.motor_is_moving.write(1)
         try:
             await self.parent.do_move(target, speed=speed)
         except AttributeError:
             warnings.warn(f"``do_move`` not implemented for motor {self.parent.name}.")
+        finally:
+            # Report that the motor is done moving
+            await self.motor_is_moving.write(0)
+            self.async_lib.sleep(self.readback_settle_time.value)
+            await self.done_moving_to_value.write(1)
 
     @MotorFields.user_offset.putter
     async def user_offset(self, instance, value):

@@ -245,8 +245,8 @@ for missing features that you want to use.
   VAL, DVAL, and RVAL all update one another. If RVAL is changed, the
   motor will move. RLV and SYNC are not used.
 `Readback`_
-  RBV, DRBV, and RRBV all update in 0.1 sec periods. The remaining
-  fields are unused.
+  RBV, DRBV, and RRBV all update in 0.1 sec periods. DMOV and MOVN
+  update when the motor is moving. The remaining fields are unused.
 `Servo`_
   Not used.
 `Alarm`_
