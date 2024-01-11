@@ -70,6 +70,8 @@ def ai_subgroup(num):
                 name=f"Ai{N}",
                 record="ai",
                 read_only=True,
+                dtype=ChannelType.FLOAT,
+                precision=4,
                 doc="Analog input value. This is polled in the driver, so either period or I/O Intr scanning can be used.",
             )
             enable = pvproperty(
@@ -103,7 +105,7 @@ def ai_subgroup(num):
                 doc="Selects the input resolution for this analog input channel. High values of resolution result in lower noise and longer ADC conversion time.\n\nResolution 0 is the default resolution for that model.\n\nThe T4 supports resolutions 1-5.\n\nThe T7 supports resolutions 1-8.\n\nThe T7-PRO supports resolutions 1-12. 1-8 use the 16-bit ADC and 9-12 use the 24-bit ADC\n\nThe T8 supports resolutions 1-16. However, these are automatically selected by the Range, and this record has no effect?",
             )
 
-            @value.scan(period=0.1, use_scan_field=True)
+            @value.scan(period=None, use_scan_field=True)
             async def value(self, instance, asynclib):
                 await self.update_value(instance)
 
@@ -781,4 +783,4 @@ class LabJackT4(LabJackBase):
     )
     # Analog inputs
     analog_inputs = SubGroup(ai_subgroup(4), prefix="")
-    digital_ios = SubGroup(dio_subgroup(16), prefix="")
+    digital_ios = SubGroup(dio_subgroup(20), prefix="")
