@@ -308,13 +308,14 @@ class MotorFieldsBase(MotorFields):
 
     async def read_motor(self):
         """Read the motor through the parent PV and update the raw readback value."""
-        try:
-            new_value = await self.parent.read_motor()
-        except AttributeError:
+        # Guard to make sure the reader is defined
+        if not hasattr(self.parent, 'read_motor'):
             warnings.warn(f"``read_motor`` not implemented for motor {self.parent.name}.")
-        else:
-            await self.raw_readback_value.write(new_value)
-
+            return
+        # Get the new motor position from the parent PV
+        new_value = await self.parent.read_motor()
+        await self.raw_readback_value.write(new_value)
+            
     @MotorFields.raw_desired_value.putter
     @no_reentry()
     async def raw_desired_value(self, instance, value):
@@ -351,10 +352,14 @@ class MotorFieldsBase(MotorFields):
         # Call the handler for actually moving the motor
         await self.done_moving_to_value.write(0)
         await self.motor_is_moving.write(1)
-        try:
-            await self.parent.do_move(target, speed=speed)
-        except AttributeError:
+        # Guard to make sure moving is implemented
+        is_implemented = hasattr(self.parent, 'do_move')
+        if not is_implemented:
             warnings.warn(f"``do_move`` not implemented for motor {self.parent.name}.")
+        # Try and move the motor
+        try:
+            if is_implemented:
+                await self.parent.do_move(target, speed=speed)
         finally:
             # Report that the motor is done moving
             await self.motor_is_moving.write(0)
