@@ -11,7 +11,7 @@ PREFIX = "LabJack:"
 class LabJackIOC(PVGroup):
     """An IOC showing several labjack devices."""
 
-    t4 = SubGroup(LabJackT4, prefix="T4:", identifier="-2")
+    t4 = SubGroup(LabJackT4, prefix="T4:", identifier="labjack25idc01")
 
 
 if __name__ == "__main__":
