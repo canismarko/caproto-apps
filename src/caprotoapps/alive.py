@@ -11,7 +11,6 @@ Example usage:
 
 """
 
-
 #!/usr/bin/env python3
 from contextlib import contextmanager
 from collections import OrderedDict
@@ -48,8 +47,7 @@ log = logging.getLogger(__name__)
 HEARTBEAT_PERIOD = 15
 
 
-class InvalidServerAddress(ValueError):
-    ...
+class InvalidServerAddress(ValueError): ...
 
 
 class NoIOCName(AttributeError):

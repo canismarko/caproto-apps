@@ -49,7 +49,7 @@ async def test_load_device_info(ioc):
         7,  # Model number: "T7"
         1,  # Connection type: "USB"
         "579934",  # Serial number
-        "127.0.0.1", # IP address
+        "127.0.0.1",  # IP address
         5000,  # Port
         2048,  # Max bytes per MB (not used)
     ]
@@ -129,7 +129,7 @@ async def test_poll_time(ioc):
     await ioc.update_poll_time(t0)
     traveller = travel(t0, tick=False)
     fake_time = traveller.start()
-    
+
     # Set fake data
     def read_names(*args, **kwargs):
         """Mocked read names that takes ~50 ms."""
@@ -140,7 +140,7 @@ async def test_poll_time(ioc):
             0.0,  # DIO_DIRECTION
             0.7542197081184724,  # AIN0
         ]
-    
+
     ioc.driver.api.eReadNames.side_effect = read_names
     # Ask the IOC to update its inputs
     await ioc.read_inputs()
@@ -152,9 +152,20 @@ async def test_poll_time(ioc):
 async def test_update_poll_time(ioc):
     tn = 1698854768.6413221
     # Pretend we've measured 13 read events
-    times = [0.75565086, 0.19431558, 0.54190896, 0.35342251, 0.25425838,
-             0.13587837, 0.12274659, 0.62698737, 0.88789073, 0.26674585,
-             0.43186444, 0.46955297]
+    times = [
+        0.75565086,
+        0.19431558,
+        0.54190896,
+        0.35342251,
+        0.25425838,
+        0.13587837,
+        0.12274659,
+        0.62698737,
+        0.88789073,
+        0.26674585,
+        0.43186444,
+        0.46955297,
+    ]
     await ioc.update_poll_time(tn)
     for t in times:
         tn += t
@@ -162,6 +173,7 @@ async def test_update_poll_time(ioc):
     # Check that the poll time is the average of the last time read events
     poll_time_s = sum(times[2:]) / 10
     assert ioc.poll_time_ms.value == pytest.approx(poll_time_s * 1000)
+
 
 @pytest.mark.asyncio
 async def test_scan_analog_input(ioc):
@@ -175,7 +187,7 @@ async def test_scan_analog_input(ioc):
     await ai.update_value(instance=pv)
     # Check that the PV got updated
     assert pv.value == 1.334
-    
+
 
 @pytest.mark.asyncio
 async def test_digital_outputs(ioc):

@@ -11,7 +11,6 @@ Example usage:
 
 """
 
-
 #!/usr/bin/env python3
 from contextlib import contextmanager
 from importlib.metadata import version
@@ -65,7 +64,7 @@ def ai_subgroup(num):
 
         class AiGroup(PVGroup):
             ai_num: int = N
-            
+
             value = pvproperty(
                 name=f"Ai{N}",
                 record="ai",
@@ -241,6 +240,7 @@ class LabJackBase(PVGroup):
     a specific labjack T-series device.
 
     """
+
     _ai_cache: dict
 
     # Device functions
@@ -731,12 +731,12 @@ class LabJackBase(PVGroup):
         # Get device info from the driver
         info = await self.driver.device_info()
         # Set PVs with the updated device info
-        await self.firmware_version.write(info['firmware_version'])
-        await self.serial_number.write(info['serial_number'])
+        await self.firmware_version.write(info["firmware_version"])
+        await self.serial_number.write(info["serial_number"])
         await self.ljm_version.write(version("labjack.ljm"))
         await self.last_error_message.write("No error")
         return info
-        
+
     @poll_sleep_ms.startup
     async def poll_sleep_ms(self, instance, async_lib):
         """Startup for the labjack device.
@@ -772,6 +772,7 @@ class LabJackT4(LabJackBase):
 
     - 4 analog inputs
     """
+
     model_name = pvproperty(
         name="ModelName",
         record="mbbi",
