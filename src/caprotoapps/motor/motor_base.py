@@ -10,13 +10,20 @@ import warnings
 
 
 
-class no_reentry():
+class ReentryManager():
     _states: dict = {}
 
     def __call__(self, func):
-        
+        """
+
+        Parameters
+        ==========
+        func
+          The callable to enter.
+        """
         @functools.wraps(func)
         async def inner(*args, **kwargs):
+            
             # Get the current state for this call
             obj = args[0]
             var_name = f"{id(obj)}-{id(func)}"
@@ -30,6 +37,25 @@ class no_reentry():
                 self._states[var_name] = False
 
         return inner
+
+    @contextmanager
+    def block(self, *targets, obj):
+        """Context manager that prevents secondary functions for running."""
+        var_names = [f"{id(obj)}-{id(target)}" for target in targets]
+        old_states = {}
+        for var_name in var_names:
+            old_states[var_name] = self._states.get(var_name, False)
+            self._states[var_name] = True
+        # Execute the wrapped code
+        try:
+            yield
+        finally:
+            # Restore original states
+            for var_name in var_names:
+                self._states[var_name] = old_states[var_name]
+            
+
+no_reentry = ReentryManager()
 
 
 @register_record
@@ -49,61 +75,6 @@ class MotorFieldsBase(MotorFields):
         self.parent_pv = None
         self.parent_subscription = None
 
-    # @property
-    # def driver(self):
-    #     # Find the root of the IOC
-    #     obj = self
-    #     while True:
-    #         # Find the next node up the tree
-    #         try:
-    #             parent = obj.parent
-    #         except AttributeError:
-    #             parent = obj.group
-    #         # See if the next node up is the root
-    #         if parent is None:
-    #             # It's the root node, so quit
-    #             break
-    #         else:
-    #             obj = parent
-    #     return obj.driver
-
-    # async def move_axis(self, instance, new_pos, vel, acc, relative):
-    #     # Indicate that the axis is moving
-    #     await instance.group.motor_is_moving.write(1)
-    #     await instance.group.done_moving_to_value.write(0)
-    #     # Do the move in a separate thread
-    #     loop = self.async_lib.library.get_running_loop()
-    #     do_mov = partial(
-    #         self.do_move,
-    #         new_pos=new_pos,
-    #         vel=vel,
-    #         acc=acc,
-    #         relative=relative,
-    #     )
-    #     await loop.run_in_executor(None, do_mov)
-    #     # Indicate that the axis is done
-    #     await instance.group.motor_is_moving.write(0)
-    #     await instance.group.done_moving_to_value.write(1)
-
-    # def do_move(self, new_pos, vel, acc, relative):
-    #
-
-    """A stub that decides what moving this axis means.
-
-    #     Intended to be easily overwritten by subclasses
-    #     (e.g. RobotJointFields).
-
-    #     """
-    #     self.driver.movel(new_pos, vel=vel, acc=acc, relative=relative)
-
-    # @MotorFields.jog_accel.startup
-    # async def jog_accel(self, instance, async_lib):
-    #     """Set the jog accel and velocity to sensible values
-
-    #     This is a hack, these should really be autosaved."""
-    #     await self.jog_accel.write(0.2)
-    #     await self.jog_velocity.write(0.5)
-
     @MotorFields.description.startup
     async def description(self, instance, async_lib):
         # Save the async lib for later use
@@ -121,7 +92,7 @@ class MotorFieldsBase(MotorFields):
         self.parent_subscription = self.parent_pv.subscribe()
         self.parent_subscription.add_callback(self.handle_new_user_desired_value)
 
-    @no_reentry()
+    @no_reentry
     async def handle_new_user_desired_value(self, pv, response):
         """Handle changes to the user setpoint value.
 
@@ -264,7 +235,7 @@ class MotorFieldsBase(MotorFields):
 
 
     @MotorFields.dial_desired_value.putter
-    @no_reentry()
+    @no_reentry
     async def dial_desired_value(self, instance, value):
         """Update related signals when the dial setpoint changes.
 
@@ -317,7 +288,7 @@ class MotorFieldsBase(MotorFields):
         await self.raw_readback_value.write(new_value)
             
     @MotorFields.raw_desired_value.putter
-    @no_reentry()
+    @no_reentry
     async def raw_desired_value(self, instance, value):
         """Handler for changing the raw desired value.
         
@@ -331,7 +302,7 @@ class MotorFieldsBase(MotorFields):
         # Move the actual motor, if defined
         await self.do_move(target=value)
 
-    @no_reentry()
+    @no_reentry
     async def do_move(self, target):
         """Perform requested motor moves.
         
@@ -520,3 +491,15 @@ class MotorFieldsBase(MotorFields):
         for fld in fields:
             attr = getattr(self, fld)
             await attr.write_metadata(precision=precision)
+
+    @MotorFields.sync_position.putter
+    async def sync_position(self, instance, value):
+        # Block the putters for these values so they don't move the motor
+        with no_reentry.block(self.dial_readback_value.putter, self.raw_readback_value.putter, obj=self):
+            # Read the RBV values and set the setpoint values
+            print(self.user_readback_value.value)
+            await self.parent.write(self.user_readback_value.value, verify_value=False)
+            await self.dial_desired_value.write(self.dial_readback_value.value, verify_value=False)
+            await self.raw_desired_value.write(self.raw_readback_value.value, verify_value=False)
+        # Reset to 0
+        return 0

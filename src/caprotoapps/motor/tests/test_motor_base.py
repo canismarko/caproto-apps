@@ -19,6 +19,8 @@ async def test_ioc():
     ioc = MockIOC(prefix="test_ioc:")
     # Set some reasonable limits
     await ioc.m1.field_inst.user_high_limit.write(20000)
+    # Make sure asynclib is defined on each PV (would be normally done on startup)
+    ioc.m1.field_inst.async_lib = AsyncioAsyncLayer()
     return ioc
 
 
@@ -364,3 +366,18 @@ async def test_change_precision(test_ioc):
     ]
     for fld in fields:
         assert test_ioc.m1.fields[fld].precision == 5, fld
+
+
+@pytest.mark.asyncio
+async def test_sync(test_ioc):
+    """Verify that the SYNC field makes the set points match the RBVs."""
+    await test_ioc.m1.fields["RRBV"].write(0.22)
+    await test_ioc.m1.fields["DRBV"].write(3.28, verify_value=False)
+    await test_ioc.m1.fields['RBV'].write(1.33, verify_value=False)
+    await test_ioc.m1.field_inst.sync_position.write(1)
+    # Check that it was reset to 0
+    assert test_ioc.m1.fields["SYNC"].value == 0
+    # Check that the VAL fields were updated
+    assert test_ioc.m1.value == 1.33
+    assert test_ioc.m1.fields["DVAL"].value == 3.28
+    assert test_ioc.m1.fields["RVAL"].value == 0.22
