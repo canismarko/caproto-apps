@@ -11,7 +11,6 @@ Example usage:
 
 """
 
-
 #!/usr/bin/env python3
 from contextlib import contextmanager
 from collections import OrderedDict

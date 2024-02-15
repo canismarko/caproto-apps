@@ -9,8 +9,7 @@ from caproto.asyncio.client import Context
 import warnings
 
 
-
-class ReentryManager():
+class ReentryManager:
     _states: dict = {}
 
     def __call__(self, func):
@@ -21,9 +20,10 @@ class ReentryManager():
         func
           The callable to enter.
         """
+
         @functools.wraps(func)
         async def inner(*args, **kwargs):
-            
+
             # Get the current state for this call
             obj = args[0]
             var_name = f"{id(obj)}-{id(func)}"
@@ -53,7 +53,7 @@ class ReentryManager():
             # Restore original states
             for var_name in var_names:
                 self._states[var_name] = old_states[var_name]
-            
+
 
 no_reentry = ReentryManager()
 
@@ -65,7 +65,10 @@ class MotorFieldsBase(MotorFields):
 
     # Over-ridden PVs
     motor_step_size = pvproperty(
-        name="MRES", dtype=PvpropertyDouble, doc="Motor Step Size (EGU)", value=1.,
+        name="MRES",
+        dtype=PvpropertyDouble,
+        doc="Motor Step Size (EGU)",
+        value=1.0,
     )
 
     def __init__(self, *args, axis_num: int = 99, **kwargs):
@@ -227,12 +230,11 @@ class MotorFieldsBase(MotorFields):
         # Check for soft limit violations
         high_limit = getattr(self, f"{which}_high_limit").value
         low_limit = getattr(self, f"{which}_low_limit").value
-        within_limits = low_limit <= value <=  high_limit
+        within_limits = low_limit <= value <= high_limit
         await self.limit_violation.write(not within_limits)
         if not within_limits:
             raise SkipWrite
         return value
-
 
     @MotorFields.dial_desired_value.putter
     @no_reentry
@@ -266,7 +268,7 @@ class MotorFieldsBase(MotorFields):
         """Propogate the raw readback value to the dial readback."""
         step_size = self.motor_step_size.value
         dial_value = value * step_size
-        await self.dial_readback_value.write(dial_value )
+        await self.dial_readback_value.write(dial_value)
 
     @MotorFields.raw_readback_value.scan(period=0.1)
     async def raw_readback_value(self, instance, async_lib):
@@ -280,18 +282,20 @@ class MotorFieldsBase(MotorFields):
     async def read_motor(self):
         """Read the motor through the parent PV and update the raw readback value."""
         # Guard to make sure the reader is defined
-        if not hasattr(self.parent, 'read_motor'):
-            warnings.warn(f"``read_motor`` not implemented for motor {self.parent.name}.")
+        if not hasattr(self.parent, "read_motor"):
+            warnings.warn(
+                f"``read_motor`` not implemented for motor {self.parent.name}."
+            )
             return
         # Get the new motor position from the parent PV
         new_value = await self.parent.read_motor()
         await self.raw_readback_value.write(new_value)
-            
+
     @MotorFields.raw_desired_value.putter
     @no_reentry
     async def raw_desired_value(self, instance, value):
         """Handler for changing the raw desired value.
-        
+
         Updates the dial_desired_value and calls the parent PVs
         ``do_move`` function to actually move the motor.
 
@@ -305,7 +309,7 @@ class MotorFieldsBase(MotorFields):
     @no_reentry
     async def do_move(self, target):
         """Perform requested motor moves.
-        
+
         Looks for a method on the parent PV property called
         ``do_move(target: float, speed: float)`` and calls it if it is
         defined.
@@ -324,7 +328,7 @@ class MotorFieldsBase(MotorFields):
         await self.done_moving_to_value.write(0)
         await self.motor_is_moving.write(1)
         # Guard to make sure moving is implemented
-        is_implemented = hasattr(self.parent, 'do_move')
+        is_implemented = hasattr(self.parent, "do_move")
         if not is_implemented:
             warnings.warn(f"``do_move`` not implemented for motor {self.parent.name}.")
         # Try and move the motor
@@ -339,7 +343,6 @@ class MotorFieldsBase(MotorFields):
 
     @MotorFields.user_offset.putter
     async def user_offset(self, instance, value):
-
         """Update the user setpoint and readback when the calibration offset changes."""
         # Convert the setpoint
         new_value = self._dial_to_user_value(
@@ -495,11 +498,17 @@ class MotorFieldsBase(MotorFields):
     @MotorFields.sync_position.putter
     async def sync_position(self, instance, value):
         # Block the putters for these values so they don't move the motor
-        with no_reentry.block(self.dial_readback_value.putter, self.raw_readback_value.putter, obj=self):
+        with no_reentry.block(
+            self.dial_readback_value.putter, self.raw_readback_value.putter, obj=self
+        ):
             # Read the RBV values and set the setpoint values
             print(self.user_readback_value.value)
             await self.parent.write(self.user_readback_value.value, verify_value=False)
-            await self.dial_desired_value.write(self.dial_readback_value.value, verify_value=False)
-            await self.raw_desired_value.write(self.raw_readback_value.value, verify_value=False)
+            await self.dial_desired_value.write(
+                self.dial_readback_value.value, verify_value=False
+            )
+            await self.raw_desired_value.write(
+                self.raw_readback_value.value, verify_value=False
+            )
         # Reset to 0
         return 0

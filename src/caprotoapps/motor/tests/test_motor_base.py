@@ -124,7 +124,7 @@ async def test_read_motor(test_ioc):
     await test_ioc.m1.field_inst.read_motor()
     assert test_ioc.m1.fields["RRBV"].value == 3.5
 
-    
+
 @pytest.mark.asyncio
 async def test_vof_fof(test_ioc):
     """The fields VOF and FOF are intended for use in backup/restore
@@ -246,13 +246,13 @@ async def test_raw_readback_value_conversion(test_ioc):
 
     """
     # Set some calibration values
-    await test_ioc.m1.fields['MRES'].write(0.5)
+    await test_ioc.m1.fields["MRES"].write(0.5)
     await test_ioc.m1.fields["DIR"].write("Pos")
     await test_ioc.m1.fields["OFF"].write(1615)
     # Set the raw readback value
-    await test_ioc.m1.fields['RRBV'].write(11770.0)
+    await test_ioc.m1.fields["RRBV"].write(11770.0)
     # Check that it was converted properly
-    assert test_ioc.m1.fields['DRBV'].value == 5885.0
+    assert test_ioc.m1.fields["DRBV"].value == 5885.0
     assert test_ioc.m1.fields["RBV"].value == 7500.0
 
 
@@ -305,6 +305,7 @@ async def test_high_user_limit(test_ioc):
     # Does the limit trigger
     assert test_ioc.m1.fields["LVIO"].value == 1
 
+
 @pytest.mark.asyncio
 async def test_low_user_limit(test_ioc):
     # Set a limit
@@ -317,7 +318,7 @@ async def test_low_user_limit(test_ioc):
     )
     # Does the limit trigger
     assert test_ioc.m1.fields["LVIO"].value == 1
-    
+
 
 @pytest.mark.asyncio
 async def test_change_precision(test_ioc):
@@ -373,7 +374,7 @@ async def test_sync(test_ioc):
     """Verify that the SYNC field makes the set points match the RBVs."""
     await test_ioc.m1.fields["RRBV"].write(0.22)
     await test_ioc.m1.fields["DRBV"].write(3.28, verify_value=False)
-    await test_ioc.m1.fields['RBV'].write(1.33, verify_value=False)
+    await test_ioc.m1.fields["RBV"].write(1.33, verify_value=False)
     await test_ioc.m1.field_inst.sync_position.write(1)
     # Check that it was reset to 0
     assert test_ioc.m1.fields["SYNC"].value == 0
