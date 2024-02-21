@@ -9,7 +9,6 @@ class User(PVGroup):
 
 
 class Proposal(PVGroup):
-
     beamline = pvproperty(record="stringout")
     endDate = pvproperty(record="stringout")
     mailInFlag = pvproperty(record="bo")
