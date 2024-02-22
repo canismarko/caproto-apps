@@ -23,7 +23,6 @@ class ReentryManager:
 
         @functools.wraps(func)
         async def inner(*args, **kwargs):
-
             # Get the current state for this call
             obj = args[0]
             var_name = f"{id(obj)}-{id(func)}"

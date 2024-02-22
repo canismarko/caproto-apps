@@ -15,8 +15,11 @@ class User(PVGroup):
     first_name = pvproperty(name="firstName", record="stringout")
     last_name = pvproperty(name="lastName", record="stringout")
 
+
 class ProposalUser(User):
-    pi_flag = pvproperty(name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM)
+    pi_flag = pvproperty(
+        name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
+    )
     institution = pvproperty(record="stringout")
 
 
@@ -24,9 +27,16 @@ class Proposal(PVGroup):
     beamline = pvproperty(record="stringout")
     end_date = pvproperty(name="endDate", record="stringout")
     end_timestamp = pvproperty(name="endTimestamp", record="longout")
-    mail_in_flag = pvproperty(name="mailInFLag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM)
+    mail_in_flag = pvproperty(
+        name="mailInFLag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
+    )
     id = pvproperty(record="stringout")
-    proprietary_flag = pvproperty(name="propietaryFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM)
+    proprietary_flag = pvproperty(
+        name="propietaryFlag",
+        record="bo",
+        enum_strings=["Y", "N"],
+        dtype=ChannelType.ENUM,
+    )
     raw = pvproperty(record="waveform")
     start_date = pvproperty(name="startDate", record="stringout")
     start_timestamp = pvproperty(name="startTimestamp", record="longout")
@@ -68,45 +78,57 @@ class Proposal(PVGroup):
             group.proprietary_flag.write(proposal["proprietaryFlag"]),
             group.raw.write(yaml.dump(proposal)),
             # Start and end dates/times
-            group.submitted_date.write(proposal['submittedDate']),
-            group.submitted_timestamp.write(self.parent.convert_datestring(proposal['submittedDate'])),
-            group.start_date.write(proposal['startTime']),
-            group.start_timestamp.write(self.parent.convert_datestring(proposal['startTime'])),
-            group.end_date.write(proposal['endTime']),
-            group.end_timestamp.write(self.parent.convert_datestring(proposal['endTime'])),
+            group.submitted_date.write(proposal["submittedDate"]),
+            group.submitted_timestamp.write(
+                self.parent.convert_datestring(proposal["submittedDate"])
+            ),
+            group.start_date.write(proposal["startTime"]),
+            group.start_timestamp.write(
+                self.parent.convert_datestring(proposal["startTime"])
+            ),
+            group.end_date.write(proposal["endTime"]),
+            group.end_timestamp.write(
+                self.parent.convert_datestring(proposal["endTime"])
+            ),
         ]
         # # Set values for aggregate user metadata
-        users = proposal['experimenters']
+        users = proposal["experimenters"]
         max_users = 9
-        coros.extend([
-            group.user_badges.write(", ".join([u['badge'] for u in users])),
-            group.users.write(", ".join([u['lastName'] for u in users])),
-            group.users_in_pvs.write(min(len(users), max_users)),
-            group.users_total.write(len(users)),
-        ])
+        coros.extend(
+            [
+                group.user_badges.write(", ".join([u["badge"] for u in users])),
+                group.users.write(", ".join([u["lastName"] for u in users])),
+                group.users_in_pvs.write(min(len(users), max_users)),
+                group.users_total.write(len(users)),
+            ]
+        )
         # Set values for individual user metadata
         for idx, user in enumerate(users[:max_users]):
             user_group = getattr(group, f"user{idx+1}")
-            coros.extend([
-                user_group.badge_number.write(user['badge']),
-                user_group.email.write(user['email']),
-                user_group.first_name.write(user['firstName']),
-                user_group.last_name.write(user['lastName']),
-                user_group.pi_flag.write(user.get('piFlag', "N")),
-                user_group.institution.write(user['institution']),
-            ])
+            coros.extend(
+                [
+                    user_group.badge_number.write(user["badge"]),
+                    user_group.email.write(user["email"]),
+                    user_group.first_name.write(user["firstName"]),
+                    user_group.last_name.write(user["lastName"]),
+                    user_group.pi_flag.write(user.get("piFlag", "N")),
+                    user_group.institution.write(user["institution"]),
+                ]
+            )
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
             print(num)
             user_group = getattr(group, f"user{num+1}")
-            coros.extend([
-                user_group.badge_number.write(""),
-                user_group.email.write(""),
-                user_group.first_name.write(""),
-                user_group.last_name.write(""),
-                user_group.pi_flag.write("N"),
-                user_group.institution.write(""),
-            ])
+            coros.extend(
+                [
+                    user_group.badge_number.write(""),
+                    user_group.email.write(""),
+                    user_group.first_name.write(""),
+                    user_group.last_name.write(""),
+                    user_group.pi_flag.write("N"),
+                    user_group.institution.write(""),
+                ]
+            )
         # Write all the PV values concurrently
         await asyncio.gather(*coros)
 
@@ -137,7 +159,7 @@ class Esaf(PVGroup):
     user7 = SubGroup(User, prefix="user7:")
     user8 = SubGroup(User, prefix="user8:")
     user9 = SubGroup(User, prefix="user9:")
-    
+
     @id.putter
     async def id(self, instance, value):
         """Handler for when the ESAF ID changes.
@@ -156,41 +178,52 @@ class Esaf(PVGroup):
             group.sector.write(esaf["sector"]),
             group.raw.write(yaml.dump(esaf)),
             # Start and end dates/times
-            group.start_date.write(esaf['experimentStartDate']),
-            group.start_timestamp.write(self.parent.convert_datestring(esaf['experimentStartDate'])),
-            group.end_date.write(esaf['experimentEndDate']),
-            group.end_timestamp.write(self.parent.convert_datestring(esaf['experimentEndDate'])),
+            group.start_date.write(esaf["experimentStartDate"]),
+            group.start_timestamp.write(
+                self.parent.convert_datestring(esaf["experimentStartDate"])
+            ),
+            group.end_date.write(esaf["experimentEndDate"]),
+            group.end_timestamp.write(
+                self.parent.convert_datestring(esaf["experimentEndDate"])
+            ),
         ]
         # Set values for aggregate user metadata
-        users = esaf['experimentUsers']
+        users = esaf["experimentUsers"]
         max_users = 9
-        coros.extend([
-            group.user_badges.write(", ".join([u['badge'] for u in users])),
-            group.users.write(", ".join([u['lastName'] for u in users])),
-            group.users_in_pvs.write(min(len(users), max_users)),
-            group.users_total.write(len(users)),
-        ])
+        coros.extend(
+            [
+                group.user_badges.write(", ".join([u["badge"] for u in users])),
+                group.users.write(", ".join([u["lastName"] for u in users])),
+                group.users_in_pvs.write(min(len(users), max_users)),
+                group.users_total.write(len(users)),
+            ]
+        )
         # Set values for individual user metadata
         for idx, user in enumerate(users[:max_users]):
             user_group = getattr(group, f"user{idx+1}")
-            coros.extend([
-                user_group.badge_number.write(user['badgeNumber']),
-                user_group.email.write(user['email']),
-                user_group.first_name.write(user['firstName']),
-                user_group.last_name.write(user['lastName']),
-            ])
+            coros.extend(
+                [
+                    user_group.badge_number.write(user["badgeNumber"]),
+                    user_group.email.write(user["email"]),
+                    user_group.first_name.write(user["firstName"]),
+                    user_group.last_name.write(user["lastName"]),
+                ]
+            )
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
             print(num)
             user_group = getattr(group, f"user{num+1}")
-            coros.extend([
-                user_group.badge_number.write(""),
-                user_group.email.write(""),
-                user_group.first_name.write(""),
-                user_group.last_name.write(""),
-            ])
+            coros.extend(
+                [
+                    user_group.badge_number.write(""),
+                    user_group.email.write(""),
+                    user_group.first_name.write(""),
+                    user_group.last_name.write(""),
+                ]
+            )
         # Write all the PV values concurrently
         await asyncio.gather(*coros)
+
 
 class ApsBssGroup(PVGroup):
     proposal = SubGroup(Proposal, prefix="proposal:")

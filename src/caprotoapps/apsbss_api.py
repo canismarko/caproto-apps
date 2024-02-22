@@ -7,7 +7,6 @@ class BSSApi:
         self._prop_api = proposal_api
         self._esaf_api = esaf_api
 
-
     async def esaf_data(self, esaf_id: str):
         """Load ESAF data from the BSS database."""
         loop = asyncio.get_running_loop()
@@ -17,7 +16,8 @@ class BSSApi:
     async def proposal_data(self, proposal_id, cycle: str, beamline: str):
         """Load proposal data from the BSS database."""
         loop = asyncio.get_running_loop()
-        get_proposal = partial(self._prop_api.getProposal, proposal_id, cycle=cycle, beamline=beamline)
+        get_proposal = partial(
+            self._prop_api.getProposal, proposal_id, cycle=cycle, beamline=beamline
+        )
         data = await loop.run_in_executor(None, get_proposal)
         return data
-    
