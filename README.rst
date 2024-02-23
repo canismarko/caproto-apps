@@ -9,6 +9,7 @@ Caproto Apps
 Implementations of select EPICS-compatible records in caproto.
 
 - Alive record
+- APS BSS
 - Labjack
 - Manager
 - Motor
@@ -79,6 +80,15 @@ can be added** (or replaced) by subclassing the AliveGroup:
         # Add a new variable, "STATUS"
         evd6 = envvar_default_property(1, "STATUS")
 
+
+APS BSS
+-------
+
+An interface to the APS beamline scheduling system. If you're looking
+for the EPICS version, try: `apsbss
+<https://bcda-aps.github.io/apsbss/install.html>`_.
+
+	
 LabJack
 -------
 
@@ -112,8 +122,8 @@ To add support for a LabJack device, include the following in an IOC:
     
     class MyIOC(PVGroup):
         t4_1 = SubGroup(LabJackT4, prefix="T4_1:", identifier="labjack01")
-	t4_2 = SubGroup(LabJackT4, prefix="T4_2:", identifier="labjack02")
-	t4_sim = SubGroup(LabJackT4, prefix="T4_3:", identifier="-2")
+        t4_2 = SubGroup(LabJackT4, prefix="T4_2:", identifier="labjack02")
+        t4_sim = SubGroup(LabJackT4, prefix="T4_3:", identifier="-2")
 
     if __name__ == "__main__":
         # Start your IOC as usual

@@ -123,21 +123,18 @@ proposal = {
 
 
 class MockIOC(PVGroup):
-    prop_api = mock.MagicMock()
-    prop_api.getProposal.return_value = proposal
-    esaf_api = mock.MagicMock()
-    esaf_api.getEsaf.return_value = esaf
-    api = BSSApi(proposal_api=prop_api, esaf_api=esaf_api)
+
     bss = SubGroup(
         apsbss.ApsBssGroup,
         prefix="bss:",
-        api=api,
+        dm_host=r"http://aps.anl.gov",
     )
 
 
 @pytest.fixture
 def mock_ioc():
     ioc = MockIOC(prefix="255idc:")
+    ioc.bss._api.get_url = mock.AsyncMock()
     yield ioc
 
 
@@ -145,11 +142,17 @@ def mock_ioc():
 async def test_update_esaf(mock_ioc):
     """Does the IOC retrieve the ESAF data when ID is changed?"""
     ioc = mock_ioc
+    ioc.bss._api.get_url.return_value = esaf
     # Set a value so we can test if the unused user fields are cleared
     await ioc.bss.esaf.user5.last_name.write("Statler")
     await ioc.bss.esaf.user9.last_name.write("Gonzo")
     # Load a new ESAF
     await ioc.bss.esaf.id.write("187973")
+    # Check that the arguments were passed to the API propoerly
+    ioc.bss._api.get_url.assert_called_with(
+        
+        "http://aps.anl.gov/dm/esafs/187973/"
+    )
     # Check that the metadata was updated
     assert ioc.bss.esaf.title.value == esaf["esafTitle"]
     assert ioc.bss.esaf.description.value == esaf["description"]
@@ -181,13 +184,14 @@ async def test_update_esaf(mock_ioc):
 async def test_update_proposal(mock_ioc):
     """Does the IOC retrieve the proposal data when ID is changed?"""
     ioc = mock_ioc
+    ioc.bss._api.get_url.return_value = proposal
     # Load a new ESAF
     await ioc.bss.proposal.beamline.write("20-BM-B")
     await ioc.bss.esaf.cycle.write("2022-2")
     await ioc.bss.proposal.id.write("74204")
     # Check that the arguments were passed to the API propoerly
-    ioc.bss._api._prop_api.getProposal.assert_called_with(
-        "74204", cycle="2022-2", beamline="20-BM-B"
+    ioc.bss._api.get_url.assert_called_with(
+        "http://aps.anl.gov/dm/proposals/2022-2/20-BM-B/74204/"
     )
     # Check that the metadata was updated
     assert ioc.bss.proposal.title.value == proposal["title"]

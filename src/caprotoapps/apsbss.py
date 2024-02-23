@@ -232,11 +232,11 @@ class ApsBssGroup(PVGroup):
     ioc_host = pvproperty(record="stringout")
     ioc_user = pvproperty(record="stringout")
 
-    def __init__(self, *args, timezone="America/Chicago", api=None, **kwargs):
+    def __init__(self, dm_host: str, *args, timezone="America/Chicago", api=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.tzinfo = ZoneInfo(timezone)
         if api is None:
-            api = BSSApi()
+            api = BSSApi(dm_host)
         self._api = api
 
     def convert_datestring(self, datestring):
