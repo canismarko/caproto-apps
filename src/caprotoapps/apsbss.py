@@ -3,34 +3,34 @@ import asyncio
 import yaml
 from zoneinfo import ZoneInfo
 
-from caproto import ChannelType
+from caproto import ChannelType, SkipWrite
 from caproto.server import PVGroup, pvproperty, SubGroup
 
-from .apsbss_api import BSSApi
+from .apsbss_api import BSSApi, ProposalNotFound
 
 
 class User(PVGroup):
-    badge_number = pvproperty(name="badgeNumber", record="stringout")
-    email = pvproperty(name="email", record="stringout")
-    first_name = pvproperty(name="firstName", record="stringout")
-    last_name = pvproperty(name="lastName", record="stringout")
+    badge_number = pvproperty(value="", name="badgeNumber", record="stringout")
+    email = pvproperty(value="", name="email", record="stringout")
+    first_name = pvproperty(value="", name="firstName", record="stringout")
+    last_name = pvproperty(value="", name="lastName", record="stringout")
 
 
 class ProposalUser(User):
     pi_flag = pvproperty(
         name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
     )
-    institution = pvproperty(record="stringout")
+    institution = pvproperty(value="", record="stringout")
 
 
 class Proposal(PVGroup):
-    beamline = pvproperty(record="stringout")
-    end_date = pvproperty(name="endDate", record="stringout")
+    beamline = pvproperty(value="", record="stringout")
+    end_date = pvproperty(value="", name="endDate", record="stringout")
     end_timestamp = pvproperty(name="endTimestamp", record="longout")
     mail_in_flag = pvproperty(
         name="mailInFLag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
     )
-    id = pvproperty(record="stringout")
+    id = pvproperty(value="", record="stringout")
     proprietary_flag = pvproperty(
         name="propietaryFlag",
         record="bo",
@@ -38,13 +38,13 @@ class Proposal(PVGroup):
         dtype=ChannelType.ENUM,
     )
     raw = pvproperty(record="waveform")
-    start_date = pvproperty(name="startDate", record="stringout")
+    start_date = pvproperty(value="", name="startDate", record="stringout")
     start_timestamp = pvproperty(name="startTimestamp", record="longout")
-    submitted_date = pvproperty(name="submittedDate", record="stringout")
+    submitted_date = pvproperty(value="", name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
-    title = pvproperty(record="waveform")
-    user_badges = pvproperty(name="userBadges", record="waveform")
-    users = pvproperty(record="waveform")
+    title = pvproperty(value="", record="waveform")
+    user_badges = pvproperty(value="", name="userBadges", record="waveform")
+    users = pvproperty(value="", record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -70,7 +70,11 @@ class Proposal(PVGroup):
         api = self.parent._api
         cycle = group.parent.esaf.cycle.value
         beamline = group.beamline.value
-        proposal = await api.proposal_data(value, cycle=cycle, beamline=beamline)
+        try:
+            proposal = await api.proposal_data(value, cycle=cycle, beamline=beamline)
+        except ProposalNotFound:
+            self.log.error(f"No such proposal ({value=}) at {beamline=} during {cycle=}")
+            raise
         # Update the relevant ESAF data PVs
         coros = [
             group.title.write(proposal["title"]),
@@ -134,19 +138,19 @@ class Proposal(PVGroup):
 
 
 class Esaf(PVGroup):
-    cycle = pvproperty(record="stringout")
-    description = pvproperty(record="waveform")
-    end_date = pvproperty(name="endDate", record="stringout")
+    cycle = pvproperty(value="", record="stringout")
+    description = pvproperty(value="", record="waveform")
+    end_date = pvproperty(value="", name="endDate", record="stringout")
     end_timestamp = pvproperty(name="endTimestamp", record="longout")
-    id = pvproperty(record="stringout")
-    raw = pvproperty(record="waveform")
-    status = pvproperty(record="stringout")
-    sector = pvproperty(record="stringout")
-    start_date = pvproperty(name="startDate", record="stringout")
+    id = pvproperty(value="", record="stringout")
+    raw = pvproperty(value="", record="waveform")
+    status = pvproperty(value="", record="stringout")
+    sector = pvproperty(value="", record="stringout")
+    start_date = pvproperty(value="", name="startDate", record="stringout")
     start_timestamp = pvproperty(name="startTimestamp", record="longout")
-    title = pvproperty(record="waveform")
-    user_badges = pvproperty(name="userBadges", record="waveform")
-    users = pvproperty(record="waveform")
+    title = pvproperty(value="", record="waveform")
+    user_badges = pvproperty(value="", name="userBadges", record="waveform")
+    users = pvproperty(value="", record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
