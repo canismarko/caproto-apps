@@ -11,40 +11,40 @@ from .apsbss_api import BSSApi, ProposalNotFound
 
 
 class User(PVGroup):
-    badge_number = pvproperty(name="badgeNumber", max_length=200, record="stringout")
-    email = pvproperty(max_length=200, name="email", record="stringout")
-    first_name = pvproperty(name="firstName", max_length=200, record="stringout")
-    last_name = pvproperty(name="lastName", max_length=200, record="stringout")
+    badge_number = pvproperty(name="badgeNumber", dtype=ChannelType.STRING, record="stringout")
+    email = pvproperty(name="email", dtype=ChannelType.STRING, record="stringout")
+    first_name = pvproperty(name="firstName", dtype=ChannelType.STRING, record="stringout")
+    last_name = pvproperty(name="lastName", dtype=ChannelType.STRING, record="stringout")
 
 
 class ProposalUser(User):
     pi_flag = pvproperty(
         name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
     )
-    institution = pvproperty(max_length=200, record="stringout")
+    institution = pvproperty(max_length=1024, record="stringout")
 
 
 class Proposal(PVGroup):
-    beamline = autosaved(pvproperty(max_length=200, record="stringout"))
-    end_date = pvproperty(max_length=200, name="endDate", record="stringout")
+    beamline = autosaved(pvproperty(dtype=ChannelType.STRING, record="stringout"))
+    end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
     end_timestamp = pvproperty(value=0, name="endTimestamp", record="longout")
     mail_in_flag = pvproperty(
         name="mailInFlag", record="bo", enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
     )
-    id = pvproperty(max_length=200, record="stringout")
+    id = pvproperty(dtype=ChannelType.STRING, record="stringout")
     proprietary_flag = pvproperty(
         name="proprietaryFlag",
         record="bo",
         enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
     )
-    raw = pvproperty(record="waveform")
-    start_date = pvproperty(max_length=200, name="startDate", record="stringout")
+    raw = pvproperty(max_length=8192, record="waveform")
+    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
     start_timestamp = pvproperty(value=0, name="startTimestamp", record="longout")
-    submitted_date = pvproperty(max_length=200, name="submittedDate", record="stringout")
+    submitted_date = pvproperty(dtype=ChannelType.STRING, name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
-    title = pvproperty(max_length=200, record="waveform")
-    user_badges = pvproperty(max_length=200, name="userBadges", record="waveform")
-    users = pvproperty(max_length=200, record="waveform")
+    title = pvproperty(max_length=1024, record="waveform")
+    user_badges = pvproperty(max_length=1024, name="userBadges", record="waveform")
+    users = pvproperty(max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -60,18 +60,18 @@ class Proposal(PVGroup):
 
     @id.putter
     async def id(self, instance, value):
-        """Handler for when the ESAF ID changes.
+        """Handler for when the Proposal ID changes.
 
-        Retrieves updated ESAF data from the BSS system.
+        Retrieves updated proposal data from the BSS system.
 
         """
         # Get proposal info from BSS system
         group = instance.group
         api = self.parent._api
-        cycle = group.parent.esaf.cycle.value[0]
-        beamline = group.beamline.value[0]
+        cycle = group.parent.esaf.cycle.value
+        beamline = group.beamline.value
         try:
-            proposal = await api.proposal_data(value[0], cycle=cycle, beamline=beamline)
+            proposal = await api.proposal_data(value, cycle=cycle, beamline=beamline)
         except ProposalNotFound:
             self.log.error(f"No such proposal ({value=}) at {beamline=} during {cycle=}")
             raise
@@ -137,19 +137,19 @@ class Proposal(PVGroup):
 
 
 class Esaf(PVGroup):
-    cycle = autosaved(pvproperty(max_length=200, record="stringout"))
-    description = pvproperty(max_length=200, record="waveform")
-    end_date = pvproperty(max_length=200, name="endDate", record="stringout")
+    cycle = autosaved(pvproperty(dtype=ChannelType.STRING, record="stringout"))
+    description = pvproperty(max_length=4096, record="waveform")
+    end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
     end_timestamp = pvproperty(name="endTimestamp", dtype=ChannelType.INT, record="longout")
-    id = pvproperty(max_length=200, record="stringout")
-    raw = pvproperty(max_length=200, record="waveform")
-    status = pvproperty(max_length=200, record="stringout")
-    sector = pvproperty(max_length=200, record="stringout")
-    start_date = pvproperty(max_length=200, name="startDate", record="stringout")
+    id = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    raw = pvproperty(max_length=8192, record="waveform")
+    status = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    sector = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
     start_timestamp = pvproperty(name="startTimestamp", dtype=ChannelType.INT, record="longout")
-    title = pvproperty(max_length=200, record="waveform")
-    user_badges = pvproperty(max_length=200, name="userBadges", record="waveform")
-    users = pvproperty(max_length=200, record="waveform")
+    title = pvproperty(max_length=1024, record="waveform")
+    user_badges = pvproperty(max_length=1024, name="userBadges", record="waveform")
+    users = pvproperty(max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -171,7 +171,7 @@ class Esaf(PVGroup):
 
         """
         api = self.parent._api
-        esaf = await api.esaf_data(value[0])
+        esaf = await api.esaf_data(value)
         # Update the relevant ESAF data PVs
         group = instance.group
         coros = [
@@ -231,8 +231,8 @@ class ApsBssGroup(PVGroup):
     proposal = SubGroup(Proposal, prefix="proposal:")
     esaf = SubGroup(Esaf, prefix="esaf:")
     status = pvproperty(record="stringout")
-    ioc_host = pvproperty(record="stringout")
-    ioc_user = pvproperty(record="stringout")
+    ioc_host = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    ioc_user = pvproperty(dtype=ChannelType.STRING, record="stringout")
 
     def __init__(self, dm_host: str, *args, timezone="America/Chicago", api=None, **kwargs):
         super().__init__(*args, **kwargs)
