@@ -151,33 +151,33 @@ async def test_update_esaf(mock_ioc):
     # Check that the arguments were passed to the API propoerly
     ioc.bss._api.get_url.assert_called_with(
         
-        "http://aps.anl.gov/dm/esafs/187973/"
+        "http://aps.anl.gov/dm/esafs/187973"
     )
     # Check that the metadata was updated
-    assert ioc.bss.esaf.title.value == esaf["esafTitle"]
-    assert ioc.bss.esaf.description.value == esaf["description"]
-    assert ioc.bss.esaf.end_date.value == "2018-07-11 23:00:00"
+    assert ioc.bss.esaf.title.value[0] == esaf["esafTitle"]
+    assert ioc.bss.esaf.description.value[0] == esaf["description"]
+    assert ioc.bss.esaf.end_date.value[0] == "2018-07-11 23:00:00"
     assert ioc.bss.esaf.end_timestamp.value == 1531368000
-    assert ioc.bss.esaf.status.value == esaf["esafStatus"]
-    assert ioc.bss.esaf.sector.value == esaf["sector"]
-    assert ioc.bss.esaf.start_date.value == "2018-06-11 08:00:00"
+    assert ioc.bss.esaf.status.value[0] == esaf["esafStatus"]
+    assert ioc.bss.esaf.sector.value[0] == esaf["sector"]
+    assert ioc.bss.esaf.start_date.value[0] == "2018-06-11 08:00:00"
     assert ioc.bss.esaf.start_timestamp.value == 1528722000
-    assert ioc.bss.esaf.raw.value == yaml.dump(esaf)
-    assert ioc.bss.esaf.user_badges.value == "268176, 239241, 288878, 298130"
-    assert ioc.bss.esaf.users.value == "Wolfman, De Andrade, Li, Judge"
+    assert ioc.bss.esaf.raw.value[0] == yaml.dump(esaf)
+    assert ioc.bss.esaf.user_badges.value[0] == "268176, 239241, 288878, 298130"
+    assert ioc.bss.esaf.users.value[0] == "Wolfman, De Andrade, Li, Judge"
     assert ioc.bss.esaf.users_in_pvs.value == 4
     assert ioc.bss.esaf.users_total.value == 4
-    assert ioc.bss.esaf.user1.badge_number.value == "268176"
-    assert ioc.bss.esaf.user1.email.value == "mwolf22@uic.edu"
-    assert ioc.bss.esaf.user1.first_name.value == "Mark"
-    assert ioc.bss.esaf.user1.last_name.value == "Wolfman"
-    assert ioc.bss.esaf.user4.badge_number.value == "298130"
-    assert ioc.bss.esaf.user4.email.value == "wjudge2@uic.edu"
-    assert ioc.bss.esaf.user4.first_name.value == "William"
-    assert ioc.bss.esaf.user4.last_name.value == "Judge"
+    assert ioc.bss.esaf.user1.badge_number.value[0] == "268176"
+    assert ioc.bss.esaf.user1.email.value[0] == "mwolf22@uic.edu"
+    assert ioc.bss.esaf.user1.first_name.value[0] == "Mark"
+    assert ioc.bss.esaf.user1.last_name.value[0] == "Wolfman"
+    assert ioc.bss.esaf.user4.badge_number.value[0] == "298130"
+    assert ioc.bss.esaf.user4.email.value[0] == "wjudge2@uic.edu"
+    assert ioc.bss.esaf.user4.first_name.value[0] == "William"
+    assert ioc.bss.esaf.user4.last_name.value[0] == "Judge"
     # Check that unused user fields are cleared
-    assert ioc.bss.esaf.user5.last_name.value == ""
-    assert ioc.bss.esaf.user9.last_name.value == ""
+    assert ioc.bss.esaf.user5.last_name.value[0] == ""
+    assert ioc.bss.esaf.user9.last_name.value[0] == ""
 
 
 @pytest.mark.asyncio
@@ -191,39 +191,39 @@ async def test_update_proposal(mock_ioc):
     await ioc.bss.proposal.id.write("74204")
     # Check that the arguments were passed to the API propoerly
     ioc.bss._api.get_url.assert_called_with(
-        "http://aps.anl.gov/dm/proposals/2022-2/20-BM-B/74204/"
+        "http://aps.anl.gov/dm/proposals/2022-2/20-BM-B/74204"
     )
     # Check that the metadata was updated
-    assert ioc.bss.proposal.title.value == proposal["title"]
-    assert ioc.bss.proposal.submitted_date.value == "2021-03-04 17:28:28-06:00"
+    assert ioc.bss.proposal.title.value[0] == proposal["title"]
+    assert ioc.bss.proposal.submitted_date.value[0] == "2021-03-04 17:28:28-06:00"
     assert ioc.bss.proposal.submitted_timestamp.value == 1614900508
-    assert ioc.bss.proposal.start_date.value == "2022-03-03 08:00:00-06:00"
+    assert ioc.bss.proposal.start_date.value[0] == "2022-03-03 08:00:00-06:00"
     assert ioc.bss.proposal.start_timestamp.value == 1646316000
-    assert ioc.bss.proposal.end_date.value == "2022-03-13 23:00:00-06:00"
+    assert ioc.bss.proposal.end_date.value[0] == "2022-03-13 23:00:00-06:00"
     assert ioc.bss.proposal.end_timestamp.value == 1647230400
     assert ioc.bss.proposal.mail_in_flag.value == "Y"
     assert ioc.bss.proposal.proprietary_flag.value == "N"
-    assert ioc.bss.proposal.user_badges.value == "85202, 64944, 287279"
-    assert ioc.bss.proposal.users.value == "Toney, Sun, Wan"
+    assert ioc.bss.proposal.user_badges.value[0] == "85202, 64944, 287279"
+    assert ioc.bss.proposal.users.value[0] == "Toney, Sun, Wan"
     assert ioc.bss.proposal.users_in_pvs.value == 3
     assert ioc.bss.proposal.users_total.value == 3
-    assert ioc.bss.proposal.user1.badge_number.value == "85202"
-    assert ioc.bss.proposal.user1.email.value == "michael.toney@colorado.edu"
-    assert ioc.bss.proposal.user1.first_name.value == "Michael"
-    assert ioc.bss.proposal.user1.last_name.value == "Toney"
+    assert ioc.bss.proposal.user1.badge_number.value[0] == "85202"
+    assert ioc.bss.proposal.user1.email.value[0] == "michael.toney@colorado.edu"
+    assert ioc.bss.proposal.user1.first_name.value[0] == "Michael"
+    assert ioc.bss.proposal.user1.last_name.value[0] == "Toney"
     assert ioc.bss.proposal.user1.pi_flag.value == "N"
     assert (
-        ioc.bss.proposal.user1.institution.value == "University of Colorado at Boulder"
+        ioc.bss.proposal.user1.institution.value[0] == "University of Colorado at Boulder"
     )
-    assert ioc.bss.proposal.user3.badge_number.value == "287279"
-    assert ioc.bss.proposal.user3.email.value == "gangwan@stanford.edu"
-    assert ioc.bss.proposal.user3.first_name.value == "Gang"
-    assert ioc.bss.proposal.user3.last_name.value == "Wan"
+    assert ioc.bss.proposal.user3.badge_number.value[0] == "287279"
+    assert ioc.bss.proposal.user3.email.value[0] == "gangwan@stanford.edu"
+    assert ioc.bss.proposal.user3.first_name.value[0] == "Gang"
+    assert ioc.bss.proposal.user3.last_name.value[0] == "Wan"
     assert ioc.bss.proposal.user3.pi_flag.value == "Y"
-    assert ioc.bss.proposal.user3.institution.value == "Stanford University"
+    assert ioc.bss.proposal.user3.institution.value[0] == "Stanford University"
     assert ioc.bss.proposal.raw.value == yaml.dump(proposal)
     # Check that unused user fields are cleared
-    assert ioc.bss.proposal.user4.last_name.value == ""
+    assert ioc.bss.proposal.user4.last_name.value[0] == ""
     assert ioc.bss.proposal.user4.pi_flag.value == "N"
-    assert ioc.bss.proposal.user4.institution.value == ""
-    assert ioc.bss.proposal.user9.last_name.value == ""
+    assert ioc.bss.proposal.user4.institution.value[0] == ""
+    assert ioc.bss.proposal.user9.last_name.value[0] == ""
