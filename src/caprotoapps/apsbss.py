@@ -21,7 +21,7 @@ class ProposalUser(User):
     pi_flag = pvproperty(
         name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
     )
-    institution = pvproperty(max_length=1024, record="stringout")
+    institution = pvproperty(value="", max_length=1024, record="stringout")
 
 
 class Proposal(PVGroup):
@@ -37,14 +37,14 @@ class Proposal(PVGroup):
         record="bo",
         enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
     )
-    raw = pvproperty(max_length=8192, record="waveform")
+    raw = pvproperty(value="", max_length=8192, record="waveform")
     start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
     start_timestamp = pvproperty(value=0, name="startTimestamp", record="longout")
     submitted_date = pvproperty(dtype=ChannelType.STRING, name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
-    title = pvproperty(max_length=1024, record="waveform")
-    user_badges = pvproperty(max_length=1024, name="userBadges", record="waveform")
-    users = pvproperty(max_length=1024, record="waveform")
+    title = pvproperty(value="", max_length=1024, record="waveform")
+    user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
+    users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -138,18 +138,18 @@ class Proposal(PVGroup):
 
 class Esaf(PVGroup):
     cycle = autosaved(pvproperty(dtype=ChannelType.STRING, record="stringout"))
-    description = pvproperty(max_length=4096, record="waveform")
+    description = pvproperty(value="", max_length=4096, record="waveform")
     end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
-    end_timestamp = pvproperty(name="endTimestamp", dtype=ChannelType.INT, record="longout")
+    end_timestamp = pvproperty(name="endTimestamp", record="longout")
     id = pvproperty(dtype=ChannelType.STRING, record="stringout")
-    raw = pvproperty(max_length=8192, record="waveform")
+    raw = pvproperty(value="", max_length=8192, record="waveform")
     status = pvproperty(dtype=ChannelType.STRING, record="stringout")
     sector = pvproperty(dtype=ChannelType.STRING, record="stringout")
     start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
-    start_timestamp = pvproperty(name="startTimestamp", dtype=ChannelType.INT, record="longout")
-    title = pvproperty(max_length=1024, record="waveform")
-    user_badges = pvproperty(max_length=1024, name="userBadges", record="waveform")
-    users = pvproperty(max_length=1024, record="waveform")
+    start_timestamp = pvproperty(name="startTimestamp", record="longout")
+    title = pvproperty(value="", max_length=1024, record="waveform")
+    user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
+    users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -174,6 +174,7 @@ class Esaf(PVGroup):
         esaf = await api.esaf_data(value)
         # Update the relevant ESAF data PVs
         group = instance.group
+        print(self.parent.convert_datestring(esaf['experimentStartDate']))
         coros = [
             group.title.write(esaf["esafTitle"]),
             group.description.write(esaf["description"]),
