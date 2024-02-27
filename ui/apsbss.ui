@@ -120,7 +120,7 @@
         <string/>
        </property>
        <property name="text">
-        <string>Done</string>
+        <string>######</string>
        </property>
       </widget>
      </item>
@@ -166,6 +166,9 @@ color: rgb(3, 52, 61);</string>
        <property name="channel" stdset="0">
         <string>ca://${P}proposal:beamline</string>
        </property>
+       <property name="displayFormat" stdset="0">
+        <enum>PyDMLineEdit::String</enum>
+       </property>
       </widget>
      </item>
      <item row="1" column="1">
@@ -179,6 +182,9 @@ color: rgb(3, 52, 61);</string>
        </property>
        <property name="channel" stdset="0">
         <string>ca://${P}esaf:cycle</string>
+       </property>
+       <property name="displayFormat" stdset="0">
+        <enum>PyDMLineEdit::String</enum>
        </property>
       </widget>
      </item>
@@ -200,13 +206,13 @@ color: rgb(3, 52, 61);</string>
    <item>
     <widget class="PyDMFrame" name="PyDMFrame">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="toolTip">
       <string/>
      </property>
      <property name="rules" stdset="0">
-      <string>[{&quot;name&quot;: &quot;Disable on empty fields&quot;, &quot;property&quot;: &quot;Enable&quot;, &quot;initial_value&quot;: &quot;${Enabled}&quot;, &quot;expression&quot;: &quot;ch[0] == \&quot;\&quot; or ch[1] == \&quot;\&quot;&quot;, &quot;channels&quot;: [{&quot;channel&quot;: &quot;ca://${P}proposal:beamline&quot;, &quot;trigger&quot;: true, &quot;use_enum&quot;: false}, {&quot;channel&quot;: &quot;ca://${P}esaf:cycle&quot;, &quot;trigger&quot;: false, &quot;use_enum&quot;: true}], &quot;notes&quot;: &quot;&quot;}]</string>
+      <string>[{&quot;name&quot;: &quot;Disable on empty fields&quot;, &quot;property&quot;: &quot;Enable&quot;, &quot;initial_value&quot;: &quot;False&quot;, &quot;expression&quot;: &quot;ch[0] != \&quot;\&quot; and ch[1] != \&quot;\&quot;&quot;, &quot;channels&quot;: [{&quot;channel&quot;: &quot;ca://${P}proposal:beamline&quot;, &quot;trigger&quot;: true, &quot;use_enum&quot;: false}, {&quot;channel&quot;: &quot;ca://${P}esaf:cycle&quot;, &quot;trigger&quot;: true, &quot;use_enum&quot;: false}], &quot;notes&quot;: &quot;&quot;}]</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <property name="spacing">
@@ -290,6 +296,9 @@ color: rgb(3, 52, 61);</string>
              </property>
              <property name="channel" stdset="0">
               <string>ca://${P}proposal:id</string>
+             </property>
+             <property name="displayFormat" stdset="0">
+              <enum>PyDMLineEdit::String</enum>
              </property>
             </widget>
            </item>
@@ -390,8 +399,17 @@ color: rgb(3, 52, 61);</string>
              <property name="styleSheet">
               <string notr="true"/>
              </property>
+             <property name="displayFormat">
+              <string>yyyy/MM/dd hh:mm:ss</string>
+             </property>
              <property name="channel" stdset="0">
               <string>ca://${P}proposal:startTimestamp</string>
+             </property>
+             <property name="timeBase" stdset="0">
+              <enum>PyDMDateTimeEdit::Seconds</enum>
+             </property>
+             <property name="relative" stdset="0">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -410,8 +428,17 @@ color: rgb(3, 52, 61);</string>
              <property name="styleSheet">
               <string notr="true"/>
              </property>
+             <property name="displayFormat">
+              <string>yyyy/MM/dd hh:mm:ss</string>
+             </property>
              <property name="channel" stdset="0">
               <string>ca://${P}proposal:endTimestamp</string>
+             </property>
+             <property name="timeBase" stdset="0">
+              <enum>PyDMDateTimeEdit::Seconds</enum>
+             </property>
+             <property name="relative" stdset="0">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -438,6 +465,9 @@ color: rgb(3, 52, 61);</string>
            <property name="channel" stdset="0">
             <string>ca://${P}proposal:title</string>
            </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
+           </property>
           </widget>
          </item>
          <item row="3" column="1">
@@ -448,6 +478,9 @@ color: rgb(3, 52, 61);</string>
            <property name="channel" stdset="0">
             <string>ca://${P}proposal:users</string>
            </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
+           </property>
           </widget>
          </item>
          <item row="4" column="1">
@@ -457,6 +490,9 @@ color: rgb(3, 52, 61);</string>
            </property>
            <property name="channel" stdset="0">
             <string>ca://${P}proposal:userBadges</string>
+           </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
            </property>
           </widget>
          </item>
@@ -566,8 +602,17 @@ color: rgb(3, 52, 61);</string>
              <property name="styleSheet">
               <string notr="true"/>
              </property>
+             <property name="displayFormat">
+              <string>yyyy/MM/dd hh:mm:ss</string>
+             </property>
              <property name="channel" stdset="0">
-              <string>ca://${P}esaf:startDate</string>
+              <string>ca://${P}esaf:startTimestamp</string>
+             </property>
+             <property name="timeBase" stdset="0">
+              <enum>PyDMDateTimeEdit::Seconds</enum>
+             </property>
+             <property name="relative" stdset="0">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -583,8 +628,17 @@ color: rgb(3, 52, 61);</string>
              <property name="toolTip">
               <string/>
              </property>
+             <property name="displayFormat">
+              <string>yyyy/MM/dd hh:mm:ss</string>
+             </property>
              <property name="channel" stdset="0">
-              <string>ca://${P}esaf:endDate</string>
+              <string>ca://${P}esaf:endTimestamp</string>
+             </property>
+             <property name="timeBase" stdset="0">
+              <enum>PyDMDateTimeEdit::Seconds</enum>
+             </property>
+             <property name="relative" stdset="0">
+              <bool>false</bool>
              </property>
             </widget>
            </item>
@@ -631,6 +685,9 @@ color: rgb(3, 52, 61);</string>
            <property name="channel" stdset="0">
             <string>ca://${P}esaf:title</string>
            </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
+           </property>
           </widget>
          </item>
          <item row="5" column="1">
@@ -641,6 +698,9 @@ color: rgb(3, 52, 61);</string>
            <property name="channel" stdset="0">
             <string>ca://${P}esaf:users</string>
            </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
+           </property>
           </widget>
          </item>
          <item row="6" column="1">
@@ -650,6 +710,9 @@ color: rgb(3, 52, 61);</string>
            </property>
            <property name="channel" stdset="0">
             <string>ca://${P}esaf:userBadges</string>
+           </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
            </property>
           </widget>
          </item>
@@ -664,6 +727,9 @@ color: rgb(3, 52, 61);</string>
            </property>
            <property name="channel" stdset="0">
             <string>ca://${P}esaf:id</string>
+           </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLineEdit::String</enum>
            </property>
           </widget>
          </item>
