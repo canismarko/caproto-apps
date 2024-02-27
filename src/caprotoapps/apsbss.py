@@ -4,47 +4,47 @@ import yaml
 from zoneinfo import ZoneInfo
 
 from caproto import ChannelType, SkipWrite
-from caproto.server import PVGroup, pvproperty, SubGroup
+from caproto.server import PVGroup, pvproperty, SubGroup, PvpropertyInteger
+from caproto.server.autosave import autosaved
 
 from .apsbss_api import BSSApi, ProposalNotFound
 
 
 class User(PVGroup):
-    badge_number = pvproperty(value="", name="badgeNumber", record="stringout")
-    email = pvproperty(value="", name="email", record="stringout")
-    first_name = pvproperty(value="", name="firstName", record="stringout")
-    last_name = pvproperty(value="", name="lastName", record="stringout")
+    badge_number = pvproperty(dtype=ChannelType.STRING, name="badgeNumber", record="stringout")
+    email = pvproperty(dtype=ChannelType.STRING, name="email", record="stringout")
+    first_name = pvproperty(dtype=ChannelType.STRING, name="firstName", record="stringout")
+    last_name = pvproperty(dtype=ChannelType.STRING, name="lastName", record="stringout")
 
 
 class ProposalUser(User):
     pi_flag = pvproperty(
         name="piFlag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
     )
-    institution = pvproperty(value="", record="stringout")
+    institution = pvproperty(dtype=ChannelType.STRING, record="stringout")
 
 
 class Proposal(PVGroup):
-    beamline = pvproperty(value="", record="stringout")
-    end_date = pvproperty(value="", name="endDate", record="stringout")
-    end_timestamp = pvproperty(name="endTimestamp", record="longout")
+    beamline = autosaved(pvproperty(dtype=ChannelType.STRING, record="stringout"))
+    end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
+    end_timestamp = pvproperty(value=0, name="endTimestamp", record="longout")
     mail_in_flag = pvproperty(
-        name="mailInFLag", record="bo", enum_strings=["Y", "N"], dtype=ChannelType.ENUM
+        name="mailInFlag", record="bo", enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
     )
-    id = pvproperty(value="", record="stringout")
+    id = pvproperty(dtype=ChannelType.STRING, record="stringout")
     proprietary_flag = pvproperty(
-        name="propietaryFlag",
+        name="proprietaryFlag",
         record="bo",
-        enum_strings=["Y", "N"],
-        dtype=ChannelType.ENUM,
+        enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
     )
     raw = pvproperty(record="waveform")
-    start_date = pvproperty(value="", name="startDate", record="stringout")
-    start_timestamp = pvproperty(name="startTimestamp", record="longout")
-    submitted_date = pvproperty(value="", name="submittedDate", record="stringout")
+    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
+    start_timestamp = pvproperty(value=0, name="startTimestamp", record="longout")
+    submitted_date = pvproperty(dtype=ChannelType.STRING, name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
-    title = pvproperty(value="", record="waveform")
-    user_badges = pvproperty(value="", name="userBadges", record="waveform")
-    users = pvproperty(value="", record="waveform")
+    title = pvproperty(dtype=ChannelType.STRING, max_length=200,)
+    user_badges = pvproperty(dtype=ChannelType.STRING, name="userBadges", record="waveform")
+    users = pvproperty(dtype=ChannelType.STRING, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -76,10 +76,13 @@ class Proposal(PVGroup):
             self.log.error(f"No such proposal ({value=}) at {beamline=} during {cycle=}")
             raise
         # Update the relevant ESAF data PVs
+        is_mail_in = 1 if proposal.get("mailInFlag", 'N').lower() == 'y' else 0
+        is_proprietary = proposal.get("proprietaryFlag", "N").lower == 'n'
+        print(group.title.max_length)
         coros = [
             group.title.write(proposal["title"]),
-            group.mail_in_flag.write(proposal["mailInFlag"]),
-            group.proprietary_flag.write(proposal["proprietaryFlag"]),
+            group.mail_in_flag.write(proposal.get("mailInFlag", "N").upper()),
+            group.proprietary_flag.write(proposal.get("mailInFlag", "N").upper()),
             group.raw.write(yaml.dump(proposal)),
             # Start and end dates/times
             group.submitted_date.write(proposal["submittedDate"]),
@@ -95,7 +98,7 @@ class Proposal(PVGroup):
                 self.parent.convert_datestring(proposal["endTime"])
             ),
         ]
-        # # Set values for aggregate user metadata
+        # Set values for aggregate user metadata
         users = proposal["experimenters"]
         max_users = 9
         coros.extend(
@@ -121,7 +124,6 @@ class Proposal(PVGroup):
             )
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
-            print(num)
             user_group = getattr(group, f"user{num+1}")
             coros.extend(
                 [
@@ -138,19 +140,19 @@ class Proposal(PVGroup):
 
 
 class Esaf(PVGroup):
-    cycle = pvproperty(value="", record="stringout")
-    description = pvproperty(value="", record="waveform")
-    end_date = pvproperty(value="", name="endDate", record="stringout")
-    end_timestamp = pvproperty(name="endTimestamp", record="longout")
-    id = pvproperty(value="", record="stringout")
-    raw = pvproperty(value="", record="waveform")
-    status = pvproperty(value="", record="stringout")
-    sector = pvproperty(value="", record="stringout")
-    start_date = pvproperty(value="", name="startDate", record="stringout")
-    start_timestamp = pvproperty(name="startTimestamp", record="longout")
-    title = pvproperty(value="", record="waveform")
-    user_badges = pvproperty(value="", name="userBadges", record="waveform")
-    users = pvproperty(value="", record="waveform")
+    cycle = autosaved(pvproperty(dtype=ChannelType.STRING, record="stringout"))
+    description = pvproperty(dtype=ChannelType.STRING, record="waveform")
+    end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
+    end_timestamp = pvproperty(name="endTimestamp", dtype=ChannelType.INT, record="longout")
+    id = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    raw = pvproperty(dtype=ChannelType.STRING, record="waveform")
+    status = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    sector = pvproperty(dtype=ChannelType.STRING, record="stringout")
+    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
+    start_timestamp = pvproperty(name="startTimestamp", dtype=ChannelType.INT, record="longout")
+    title = pvproperty(dtype=ChannelType.STRING, record="waveform")
+    user_badges = pvproperty(dtype=ChannelType.STRING, name="userBadges", record="waveform")
+    users = pvproperty(dtype=ChannelType.STRING, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
 
@@ -215,7 +217,6 @@ class Esaf(PVGroup):
             )
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
-            print(num)
             user_group = getattr(group, f"user{num+1}")
             coros.extend(
                 [

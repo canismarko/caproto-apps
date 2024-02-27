@@ -58,13 +58,14 @@ class BSSApi:
 
     async def esaf_data(self, esaf_id: str) -> Mapping:
         """Load ESAF data from the BSS database."""
-        url = f"{self.host}/dm/esafs/{esaf_id}/"
+        url = f"{self.host}/dm/esafs/{esaf_id}"
         return await self.get_url(url)
 
     async def proposal_data(self, proposal_id, cycle: str, beamline: str) -> Mapping:
         """Load proposal data from the BSS database."""
-        url = f"{self.host}/dm/proposals/{cycle}/{beamline}/{proposal_id}/"
+        url = f"{self.host}/dm/proposals/{cycle}/{beamline}/{proposal_id}"
         try:
-            return await self.get_url(url)
+            data = await self.get_url(url)
+            return data 
         except ClientResponseError:
             raise ProposalNotFound(f"ID: {proposal_id}, beamline: {beamline}, cycle: {cycle}")
