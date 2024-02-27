@@ -42,7 +42,7 @@ class Proposal(PVGroup):
     start_timestamp = pvproperty(value=0, name="startTimestamp", record="longout")
     submitted_date = pvproperty(max_length=200, name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
-    title = pvproperty(max_length=200)
+    title = pvproperty(max_length=200, record="waveform")
     user_badges = pvproperty(max_length=200, name="userBadges", record="waveform")
     users = pvproperty(max_length=200, record="waveform")
     users_in_pvs = pvproperty(record="longout")
