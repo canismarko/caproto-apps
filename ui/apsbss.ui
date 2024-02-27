@@ -675,6 +675,9 @@ color: rgb(3, 52, 61);</string>
            <property name="channel" stdset="0">
             <string>ca://${P}esaf:status</string>
            </property>
+           <property name="displayFormat" stdset="0">
+            <enum>PyDMLabel::String</enum>
+           </property>
           </widget>
          </item>
          <item row="4" column="1">
