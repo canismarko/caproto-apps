@@ -182,7 +182,6 @@ class Esaf(PVGroup):
         esaf = await api.esaf_data(value)
         # Update the relevant ESAF data PVs
         group = instance.group
-        print(self.parent.convert_datestring(esaf['experimentStartDate']))
         coros = [
             group.title.write(esaf["esafTitle"]),
             group.description.write(esaf["description"]),
@@ -225,7 +224,7 @@ class Esaf(PVGroup):
             if user.get('piFlag', "No") == "Yes":
                 pis.append(user["lastName"])
             # Update the list of PIs
-        coros.append(group.PI_names.write(", ".join(pis)))
+        coros.append(group.user_PIs.write(", ".join(pis)))
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
             user_group = getattr(group, f"user{num+1}")
