@@ -164,7 +164,7 @@ async def test_update_esaf(mock_ioc):
     assert ioc.bss.esaf.start_timestamp.value == 1528722000
     assert ioc.bss.esaf.raw.value == yaml.dump(esaf)
     assert ioc.bss.esaf.user_badges.value == "268176, 239241, 288878, 298130"
-    # assert ioc.bss.esaf.user_PIs == "Gang"
+    assert ioc.bss.esaf.user_PIs.value == "Wolfman, Judge"
     assert ioc.bss.esaf.users.value == "Wolfman, De Andrade, Li, Judge"
     assert ioc.bss.esaf.users_in_pvs.value == 4
     assert ioc.bss.esaf.users_total.value == 4
@@ -205,7 +205,7 @@ async def test_update_proposal(mock_ioc):
     assert ioc.bss.proposal.mail_in_flag.value == "Y"
     assert ioc.bss.proposal.proprietary_flag.value == "N"
     assert ioc.bss.proposal.user_badges.value == "85202, 64944, 287279"
-    # assert ioc.bss.proposal.user_PIs == "Wolfman, Judge"
+    assert ioc.bss.proposal.user_PIs.value == "Wan"
     assert ioc.bss.proposal.users.value == "Toney, Sun, Wan"
     assert ioc.bss.proposal.users_in_pvs.value == 3
     assert ioc.bss.proposal.users_total.value == 3

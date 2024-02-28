@@ -43,6 +43,7 @@ class Proposal(PVGroup):
     submitted_date = pvproperty(dtype=ChannelType.STRING, name="submittedDate", record="stringout")
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
     title = pvproperty(value="", max_length=1024, record="waveform")
+    user_PIs = pvproperty(value="", dtype=ChannelType.STRING, name="userPIs", record="waveform")
     user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
     users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
@@ -107,6 +108,7 @@ class Proposal(PVGroup):
             ]
         )
         # Set values for individual user metadata
+        pis = []
         for idx, user in enumerate(users[:max_users]):
             user_group = getattr(group, f"user{idx+1}")
             coros.extend(
@@ -119,6 +121,11 @@ class Proposal(PVGroup):
                     user_group.institution.write(user["institution"]),
                 ]
             )
+            # Check if it's a PI
+            if user.get('piFlag', "N") == "Y":
+                pis.append(user["lastName"])
+        # Update the list of PIs
+        coros.append(group.user_PIs.write(", ".join(pis)))
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
             user_group = getattr(group, f"user{num+1}")
@@ -149,6 +156,7 @@ class Esaf(PVGroup):
     start_timestamp = pvproperty(name="startTimestamp", record="longout")
     title = pvproperty(value="", max_length=1024, record="waveform")
     user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
+    user_PIs = pvproperty(value="", dtype=ChannelType.STRING, name="userPIs", record="waveform")
     users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
@@ -203,6 +211,7 @@ class Esaf(PVGroup):
             ]
         )
         # Set values for individual user metadata
+        pis = []
         for idx, user in enumerate(users[:max_users]):
             user_group = getattr(group, f"user{idx+1}")
             coros.extend(
@@ -213,6 +222,10 @@ class Esaf(PVGroup):
                     user_group.last_name.write(user["lastName"]),
                 ]
             )
+            if user.get('piFlag', "No") == "Yes":
+                pis.append(user["lastName"])
+            # Update the list of PIs
+        coros.append(group.PI_names.write(", ".join(pis)))
         # Clear unused user metadata fields
         for num in range(len(users), max_users):
             user_group = getattr(group, f"user{num+1}")
