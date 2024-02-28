@@ -13,17 +13,19 @@ REST API Endpoints
 | /dm/esafs/12345                    | ESAF #12345                                     |
 
 """
+
+import asyncio
+from functools import partial
 from pathlib import Path
+from typing import Mapping
 
 import aiohttp
 from aiohttp.client_exceptions import ClientResponseError
-from functools import partial
-import asyncio
-from typing import Mapping
 
 
 class ProposalNotFound(RuntimeError):
     """The proposal number cannot be found in the database."""
+
     ...
 
 
@@ -45,12 +47,12 @@ class BSSApi:
     esaf_api
       An ESAF API client.
     """
+
     def __init__(self, dm_host: str = "https://localhost"):
         # Remove trailing '/' so we don't double up later
-        self.host = dm_host.strip('/')
+        self.host = dm_host.strip("/")
 
     async def get_url(self, url):
-
         async with aiohttp.ClientSession() as session:
             async with session.get(url, verify_ssl=False) as response:
                 response.raise_for_status()
@@ -66,6 +68,8 @@ class BSSApi:
         url = f"{self.host}/dm/proposals/{cycle}/{beamline}/{proposal_id}"
         try:
             data = await self.get_url(url)
-            return data 
+            return data
         except ClientResponseError:
-            raise ProposalNotFound(f"ID: {proposal_id}, beamline: {beamline}, cycle: {cycle}")
+            raise ProposalNotFound(
+                f"ID: {proposal_id}, beamline: {beamline}, cycle: {cycle}"
+            )

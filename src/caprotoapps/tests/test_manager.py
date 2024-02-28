@@ -1,12 +1,12 @@
+import asyncio
 from pathlib import Path
 from unittest import mock
-import asyncio
 
 import pytest
-from caproto.server import PVGroup, SubGroup
 from caproto.asyncio.server import AsyncioAsyncLayer
+from caproto.server import PVGroup, SubGroup
 
-from caprotoapps import manager, exceptions
+from caprotoapps import exceptions, manager
 
 
 class MockIOC(PVGroup):

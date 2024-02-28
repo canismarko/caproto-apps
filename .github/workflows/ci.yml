@@ -41,6 +41,9 @@ jobs:
     - name: Enforce formatting with black
       run: |
         black --check src/
+    - name: Enforce import ordering with isort
+      run: |
+        isort --check src/
     - name: Test with pytest
       run: |
         pytest

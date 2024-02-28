@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from labjack import ljm
 
-from caprotoapps.labjack import LabJackDriver, LabJackDisconnected
+from caprotoapps.labjack import LabJackDisconnected, LabJackDriver
 
 
 @pytest.fixture()

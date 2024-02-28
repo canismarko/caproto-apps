@@ -1,6 +1,6 @@
 import asyncio
-import socket
 import logging
+import socket
 import warnings
 
 from labjack import ljm

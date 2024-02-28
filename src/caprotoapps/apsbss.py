@@ -1,20 +1,26 @@
-from datetime import datetime
 import asyncio
-import yaml
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import yaml
 from caproto import ChannelType, SkipWrite
-from caproto.server import PVGroup, pvproperty, SubGroup, PvpropertyInteger
+from caproto.server import PVGroup, PvpropertyInteger, SubGroup, pvproperty
 from caproto.server.autosave import autosaved
 
 from .apsbss_api import BSSApi, ProposalNotFound
 
 
 class User(PVGroup):
-    badge_number = pvproperty(name="badgeNumber", dtype=ChannelType.STRING, record="stringout")
+    badge_number = pvproperty(
+        name="badgeNumber", dtype=ChannelType.STRING, record="stringout"
+    )
     email = pvproperty(name="email", dtype=ChannelType.STRING, record="stringout")
-    first_name = pvproperty(name="firstName", dtype=ChannelType.STRING, record="stringout")
-    last_name = pvproperty(name="lastName", dtype=ChannelType.STRING, record="stringout")
+    first_name = pvproperty(
+        name="firstName", dtype=ChannelType.STRING, record="stringout"
+    )
+    last_name = pvproperty(
+        name="lastName", dtype=ChannelType.STRING, record="stringout"
+    )
 
 
 class ProposalUser(User):
@@ -29,22 +35,34 @@ class Proposal(PVGroup):
     end_date = pvproperty(dtype=ChannelType.STRING, name="endDate", record="stringout")
     end_timestamp = pvproperty(value=0, name="endTimestamp", record="longout")
     mail_in_flag = pvproperty(
-        name="mailInFlag", record="bo", enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
+        name="mailInFlag",
+        record="bo",
+        enum_strings=["N", "Y"],
+        dtype=ChannelType.ENUM,
     )
     id = pvproperty(dtype=ChannelType.STRING, record="stringout")
     proprietary_flag = pvproperty(
         name="proprietaryFlag",
         record="bo",
-        enum_strings=["N", "Y"], dtype=ChannelType.ENUM,
+        enum_strings=["N", "Y"],
+        dtype=ChannelType.ENUM,
     )
     raw = pvproperty(value="", max_length=8192, record="waveform")
-    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
+    start_date = pvproperty(
+        dtype=ChannelType.STRING, name="startDate", record="stringout"
+    )
     start_timestamp = pvproperty(value=0, name="startTimestamp", record="longout")
-    submitted_date = pvproperty(dtype=ChannelType.STRING, name="submittedDate", record="stringout")
+    submitted_date = pvproperty(
+        dtype=ChannelType.STRING, name="submittedDate", record="stringout"
+    )
     submitted_timestamp = pvproperty(name="submittedTimestamp", record="longout")
     title = pvproperty(value="", max_length=1024, record="waveform")
-    user_PIs = pvproperty(value="", dtype=ChannelType.STRING, name="userPIs", record="waveform")
-    user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
+    user_PIs = pvproperty(
+        value="", dtype=ChannelType.STRING, name="userPIs", record="waveform"
+    )
+    user_badges = pvproperty(
+        value="", max_length=1024, name="userBadges", record="waveform"
+    )
     users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
@@ -74,7 +92,9 @@ class Proposal(PVGroup):
         try:
             proposal = await api.proposal_data(value, cycle=cycle, beamline=beamline)
         except ProposalNotFound:
-            self.log.error(f"No such proposal ({value=}) at {beamline=} during {cycle=}")
+            self.log.error(
+                f"No such proposal ({value=}) at {beamline=} during {cycle=}"
+            )
             raise
         # Update the relevant ESAF data PVs
         coros = [
@@ -122,7 +142,7 @@ class Proposal(PVGroup):
                 ]
             )
             # Check if it's a PI
-            if user.get('piFlag', "N") == "Y":
+            if user.get("piFlag", "N") == "Y":
                 pis.append(user["lastName"])
         # Update the list of PIs
         coros.append(group.user_PIs.write(", ".join(pis)))
@@ -152,11 +172,17 @@ class Esaf(PVGroup):
     raw = pvproperty(value="", max_length=8192, record="waveform")
     status = pvproperty(dtype=ChannelType.STRING, record="stringout")
     sector = pvproperty(dtype=ChannelType.STRING, record="stringout")
-    start_date = pvproperty(dtype=ChannelType.STRING, name="startDate", record="stringout")
+    start_date = pvproperty(
+        dtype=ChannelType.STRING, name="startDate", record="stringout"
+    )
     start_timestamp = pvproperty(name="startTimestamp", record="longout")
     title = pvproperty(value="", max_length=1024, record="waveform")
-    user_badges = pvproperty(value="", max_length=1024, name="userBadges", record="waveform")
-    user_PIs = pvproperty(value="", dtype=ChannelType.STRING, name="userPIs", record="waveform")
+    user_badges = pvproperty(
+        value="", max_length=1024, name="userBadges", record="waveform"
+    )
+    user_PIs = pvproperty(
+        value="", dtype=ChannelType.STRING, name="userPIs", record="waveform"
+    )
     users = pvproperty(value="", max_length=1024, record="waveform")
     users_in_pvs = pvproperty(record="longout")
     users_total = pvproperty(record="longout")
@@ -221,7 +247,7 @@ class Esaf(PVGroup):
                     user_group.last_name.write(user["lastName"]),
                 ]
             )
-            if user.get('piFlag', "No") == "Yes":
+            if user.get("piFlag", "No") == "Yes":
                 pis.append(user["lastName"])
             # Update the list of PIs
         coros.append(group.user_PIs.write(", ".join(pis)))
@@ -247,7 +273,9 @@ class ApsBssGroup(PVGroup):
     ioc_host = pvproperty(dtype=ChannelType.STRING, record="stringout")
     ioc_user = pvproperty(dtype=ChannelType.STRING, record="stringout")
 
-    def __init__(self, dm_host: str, *args, timezone="America/Chicago", api=None, **kwargs):
+    def __init__(
+        self, dm_host: str, *args, timezone="America/Chicago", api=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.tzinfo = ZoneInfo(timezone)
         if api is None:

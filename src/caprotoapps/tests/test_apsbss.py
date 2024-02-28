@@ -1,12 +1,11 @@
 from unittest import mock
+
 import pytest
 import yaml
-
 from caproto.server import PVGroup, SubGroup
 
 from caprotoapps import apsbss
 from caprotoapps.apsbss_api import BSSApi
-
 
 esaf = {
     "description": (
@@ -123,7 +122,6 @@ proposal = {
 
 
 class MockIOC(PVGroup):
-
     bss = SubGroup(
         apsbss.ApsBssGroup,
         prefix="bss:",
@@ -149,10 +147,7 @@ async def test_update_esaf(mock_ioc):
     # Load a new ESAF
     await ioc.bss.esaf.id.write("187973")
     # Check that the arguments were passed to the API propoerly
-    ioc.bss._api.get_url.assert_called_with(
-        
-        "http://aps.anl.gov/dm/esafs/187973"
-    )
+    ioc.bss._api.get_url.assert_called_with("http://aps.anl.gov/dm/esafs/187973")
     # Check that the metadata was updated
     assert ioc.bss.esaf.title.value == esaf["esafTitle"]
     assert ioc.bss.esaf.description.value == esaf["description"]

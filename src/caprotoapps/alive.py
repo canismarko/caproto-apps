@@ -11,35 +11,28 @@ Example usage:
 
 """
 
-#!/usr/bin/env python3
-from contextlib import contextmanager
-from collections import OrderedDict
-import logging
-import sys
-import time
 import asyncio
-from functools import partial
-from threading import Lock
-import re
-import os
+import enum
 import getpass
 import grp
-import enum
-import struct
+import logging
+import os
+import re
 import socket
-from typing import Sequence, Mapping
+import struct
+import sys
+import time
+from collections import OrderedDict
+#!/usr/bin/env python3
+from contextlib import contextmanager
+from functools import partial
+from threading import Lock
+from typing import Mapping, Sequence
 
 from caproto import ChannelType, SkipWrite
-from caproto.server import (
-    PVGroup,
-    pvproperty,
-    PvpropertyDouble,
-    PvpropertyShort,
-    PvpropertyShortRO,
-    PvpropertyChar,
-    SubGroup,
-    scan_wrapper,
-)
+from caproto.server import (PVGroup, PvpropertyChar, PvpropertyDouble,
+                            PvpropertyShort, PvpropertyShortRO, SubGroup,
+                            pvproperty, scan_wrapper)
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +40,7 @@ log = logging.getLogger(__name__)
 HEARTBEAT_PERIOD = 15
 
 
-class InvalidServerAddress(ValueError):
-    ...
+class InvalidServerAddress(ValueError): ...
 
 
 class NoIOCName(AttributeError):

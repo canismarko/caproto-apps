@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from textwrap import dedent
 
-from caproto.server import PVGroup, ioc_arg_parser, pvproperty, run, SubGroup
+from caproto.server import PVGroup, SubGroup, ioc_arg_parser, pvproperty, run
+
 from caprotoapps import ApsBssGroup
 
 
