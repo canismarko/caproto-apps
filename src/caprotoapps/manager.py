@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 from collections import OrderedDict
+
 #!/usr/bin/env python3
 from contextlib import contextmanager
 from enum import IntEnum
@@ -34,9 +35,16 @@ from threading import Lock
 from typing import Mapping, Optional, Sequence
 
 from caproto import ChannelType, SkipWrite
-from caproto.server import (PVGroup, PvpropertyChar, PvpropertyDouble,
-                            PvpropertyShort, PvpropertyShortRO, SubGroup,
-                            pvproperty, scan_wrapper)
+from caproto.server import (
+    PVGroup,
+    PvpropertyChar,
+    PvpropertyDouble,
+    PvpropertyShort,
+    PvpropertyShortRO,
+    SubGroup,
+    pvproperty,
+    scan_wrapper,
+)
 from fabric import Connection
 
 from . import exceptions

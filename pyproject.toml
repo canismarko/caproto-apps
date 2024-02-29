@@ -31,6 +31,9 @@ dev = ["black", "isort", "pytest", "pytest-asyncio", "build", "twine", "flake8",
 [project.urls]
 Homepage = "https://github.com/canismarko/caproto-apps"
 
+[tool.isort]
+profile = "black"
+
 # [tool.setuptools]
 # packages = ["haven", "firefly"]
 

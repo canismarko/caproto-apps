@@ -23,6 +23,7 @@ import struct
 import sys
 import time
 from collections import OrderedDict
+
 #!/usr/bin/env python3
 from contextlib import contextmanager
 from functools import partial
@@ -32,9 +33,16 @@ from typing import Mapping, Sequence
 
 import numpy as np
 from caproto import ChannelType, SkipWrite
-from caproto.server import (PVGroup, PvpropertyChar, PvpropertyDouble,
-                            PvpropertyShort, PvpropertyShortRO, SubGroup,
-                            pvproperty, scan_wrapper)
+from caproto.server import (
+    PVGroup,
+    PvpropertyChar,
+    PvpropertyDouble,
+    PvpropertyShort,
+    PvpropertyShortRO,
+    SubGroup,
+    pvproperty,
+    scan_wrapper,
+)
 
 from .driver import LabJackDriver
 

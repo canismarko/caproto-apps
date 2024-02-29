@@ -17,6 +17,7 @@ from caprotoapps import ApsBssGroup
 
 class BSSIOC(PVGroup):
     """An IOC connecting to the APS beamline scheduling system."""
+
     bss = SubGroup(ApsBssGroup, prefix="bss:", dm_host="https://example.org:11236")
 
 

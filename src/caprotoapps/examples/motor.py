@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 from textwrap import dedent
 
-from caproto.server import (PVGroup, PvpropertyDouble, SubGroup,
-                            ioc_arg_parser, pvproperty, run)
+from caproto.server import (
+    PVGroup,
+    PvpropertyDouble,
+    SubGroup,
+    ioc_arg_parser,
+    pvproperty,
+    run,
+)
 
 from caprotoapps import MotorFieldsBase
 
