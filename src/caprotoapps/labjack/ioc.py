@@ -11,37 +11,38 @@ Example usage:
 
 """
 
-#!/usr/bin/env python3
-from contextlib import contextmanager
-from importlib.metadata import version
-from collections import OrderedDict
-import logging
-import sys
-import time
 import asyncio
-from functools import partial
-from threading import Lock
-import re
-import os
+import enum
 import getpass
 import grp
-import enum
-import struct
+import logging
+import os
+import re
 import socket
-from typing import Sequence, Mapping
+import struct
+import sys
+import time
+from collections import OrderedDict
 
+#!/usr/bin/env python3
+from contextlib import contextmanager
+from functools import partial
+from importlib.metadata import version
+from threading import Lock
+from typing import Mapping, Sequence
+
+import numpy as np
 from caproto import ChannelType, SkipWrite
 from caproto.server import (
     PVGroup,
-    pvproperty,
+    PvpropertyChar,
     PvpropertyDouble,
     PvpropertyShort,
     PvpropertyShortRO,
-    PvpropertyChar,
     SubGroup,
+    pvproperty,
     scan_wrapper,
 )
-import numpy as np
 
 from .driver import LabJackDriver
 

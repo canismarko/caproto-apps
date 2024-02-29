@@ -11,40 +11,41 @@ Example usage:
 
 """
 
-#!/usr/bin/env python3
-from contextlib import contextmanager
-from collections import OrderedDict
-from pathlib import Path
-import logging
-import sys
-import time
 import asyncio
-from functools import partial
-from threading import Lock
-import subprocess
-from subprocess import PIPE, STDOUT
-import re
-import os
+import enum
 import getpass
 import grp
-import enum
-import struct
+import logging
+import os
+import re
 import socket
-from enum import IntEnum
-from typing import Sequence, Mapping, Optional
+import struct
+import subprocess
+import sys
+import time
+from collections import OrderedDict
 
-from fabric import Connection
+#!/usr/bin/env python3
+from contextlib import contextmanager
+from enum import IntEnum
+from functools import partial
+from pathlib import Path
+from subprocess import PIPE, STDOUT
+from threading import Lock
+from typing import Mapping, Optional, Sequence
+
 from caproto import ChannelType, SkipWrite
 from caproto.server import (
     PVGroup,
-    pvproperty,
+    PvpropertyChar,
     PvpropertyDouble,
     PvpropertyShort,
     PvpropertyShortRO,
-    PvpropertyChar,
     SubGroup,
+    pvproperty,
     scan_wrapper,
 )
+from fabric import Connection
 
 from . import exceptions
 

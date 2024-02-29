@@ -1,10 +1,10 @@
-from unittest import mock
-import struct
 import asyncio
 import socket
+import struct
+from unittest import mock
 
 import pytest
-from caproto.server import SubGroup, PVGroup
+from caproto.server import PVGroup, SubGroup
 
 from caprotoapps import alive
 

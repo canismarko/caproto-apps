@@ -23,13 +23,16 @@ classifiers = [
     "Topic :: System :: Hardware",
 ]
 keywords = ["caproto", "controls"]
-dependencies = ["caproto", "fabric", "labjack-ljm", "numpy"]
+dependencies = ["caproto", "fabric", "labjack-ljm", "numpy", "pyyaml", "aiohttp"]
 
 [project.optional-dependencies]
-dev = ["black", "pytest", "pytest-asyncio", "build", "twine", "flake8", "time-machine"]
+dev = ["black", "isort", "pytest", "pytest-asyncio", "build", "twine", "flake8", "time-machine"]
 
 [project.urls]
 Homepage = "https://github.com/canismarko/caproto-apps"
+
+[tool.isort]
+profile = "black"
 
 # [tool.setuptools]
 # packages = ["haven", "firefly"]

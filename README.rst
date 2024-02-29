@@ -9,6 +9,7 @@ Caproto Apps
 Implementations of select EPICS-compatible records in caproto.
 
 - Alive record
+- APS BSS
 - Labjack
 - Manager
 - Motor
@@ -79,6 +80,43 @@ can be added** (or replaced) by subclassing the AliveGroup:
         # Add a new variable, "STATUS"
         evd6 = envvar_default_property(1, "STATUS")
 
+
+APS BSS
+-------
+
+An interface to the APS beamline scheduling system. If you're looking
+for the EPICS version, try: `apsbss
+<https://bcda-aps.github.io/apsbss/install.html>`_.
+
+This PVGroup tries to mimic the EPICS version, with a few exceptions:
+
+1. The proposal and ESAF fields are automatically updated whenever the
+  ``${P}proposal:id`` and ``${P}esaf:id`` fields are changed.
+2. The ``id`` fields are strings instead of integers.
+3. There are PVs for the list of principals investigators:
+  ``${P}proposal:userPIs`` and ``${P}esaf:userPIs``.
+
+To allow the BSS group to access the scheduling database, you must
+provide it with the host and port for the REST API, then add it as a
+SubGroup to your IOC. See ``examples/apsbss_ioc.py`` for a complete
+example.
+
+.. code-block:: python
+
+    from caprotoapps import ApsBssGroup
+    
+    class MyIOC(PVGroup):
+        ...
+        bss = SubGroup(ApsBssGroup, prefix="bss:", dm_host="https://example.org:11236")
+
+
+Then set ``${P}bss:esaf:cycle`` and ``${P}bss:proposal:beamline`` to
+the corresponding cycle (e.g. "2023-1") and beamline (e.g. "25-ID-C").
+
+To update the proposal and ESAF fields, set ``${P}:bss:proposal:id``
+and ``${P}:bss:esaf:id`` respectively.
+
+
 LabJack
 -------
 
@@ -112,8 +150,8 @@ To add support for a LabJack device, include the following in an IOC:
     
     class MyIOC(PVGroup):
         t4_1 = SubGroup(LabJackT4, prefix="T4_1:", identifier="labjack01")
-	t4_2 = SubGroup(LabJackT4, prefix="T4_2:", identifier="labjack02")
-	t4_sim = SubGroup(LabJackT4, prefix="T4_3:", identifier="-2")
+        t4_2 = SubGroup(LabJackT4, prefix="T4_2:", identifier="labjack02")
+        t4_sim = SubGroup(LabJackT4, prefix="T4_3:", identifier="-2")
 
     if __name__ == "__main__":
         # Start your IOC as usual

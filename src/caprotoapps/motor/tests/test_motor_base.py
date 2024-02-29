@@ -1,11 +1,11 @@
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
 from pprint import pprint
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-from caproto.server import pvproperty, PVGroup, SubGroup
 from caproto.asyncio.server import AsyncioAsyncLayer
+from caproto.server import PVGroup, SubGroup, pvproperty
 
 from caprotoapps import MotorFieldsBase
 

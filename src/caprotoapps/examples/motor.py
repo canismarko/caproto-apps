@@ -3,14 +3,14 @@ from textwrap import dedent
 
 from caproto.server import (
     PVGroup,
+    PvpropertyDouble,
+    SubGroup,
     ioc_arg_parser,
     pvproperty,
     run,
-    SubGroup,
-    PvpropertyDouble,
 )
-from caprotoapps import MotorFieldsBase
 
+from caprotoapps import MotorFieldsBase
 
 PREFIX = "motors:"
 

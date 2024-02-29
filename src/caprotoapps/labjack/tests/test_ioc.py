@@ -1,13 +1,13 @@
-from unittest import mock
 import asyncio
 import datetime as dt
+from unittest import mock
 
 import pytest
-from time_machine import travel
-from labjack import ljm
-
-from caprotoapps.labjack import LabJackT4, LabJackDriver, LabJackDisconnected
 from caproto.asyncio.server import AsyncioAsyncLayer
+from labjack import ljm
+from time_machine import travel
+
+from caprotoapps.labjack import LabJackDisconnected, LabJackDriver, LabJackT4
 
 
 @pytest.fixture
