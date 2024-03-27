@@ -13,6 +13,7 @@ Example usage:
 from aiopath import AsyncPath as Path
 
 from caproto.server import PVGroup, pvproperty
+from caproto.server.autosave import autosaved
 from pathvalidate import sanitize_filepath
 
 
@@ -38,13 +39,13 @@ class LocalStorageGroup(PVGroup):
 
     """
 
-    file_system = pvproperty(
+    file_system = autosaved(pvproperty(
         value="",
         max_length=200,
         string_encoding="utf-8",
         report_as_string=True,
         doc="The static portion of the directory path. Does not change with BSS metadata.",
-    )
+    ))
     sub_directory = pvproperty(
         value="",
         max_length=200,
